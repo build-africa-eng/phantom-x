@@ -1,27 +1,29 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import collections
 import errno
 import glob
 import importlib.util
+import io
 import os
 import platform
 import posixpath
 import re
 import shlex
-import SimpleHTTPServer
 import socket
-import SocketServer
 import ssl
 import string
-import cStringIO as StringIO
 import subprocess
 import sys
 import threading
 import time
 import traceback
-import urllib
+import urllib.request
+import urllib.parse
+import urllib.error
+from http.server import SimpleHTTPRequestHandler
+from socketserver import TCPServer
 
 # All files matching one of these glob patterns will be run as tests.
 TESTS = [
