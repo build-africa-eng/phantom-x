@@ -23,8 +23,7 @@ def do_response(req, body, code=200, headers=None):
         if k != 'Content-Length':
             req.send_header(k, v)
     req.end_headers()
-    req.wfile.write(body.encode("utf-8"))
-    return io.StringIO()  # dummy return for compatibility
+    req.wfile.write(body_bytes)
 
 
 def do_redirect(req, target):
