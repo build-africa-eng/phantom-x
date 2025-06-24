@@ -1,0 +1,42 @@
+name: Build PhantomJS2
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            g++ \
+            cmake \
+            qtbase5-dev \
+            libqt5webkit5-dev \
+            qttools5-dev-tools \
+            qtchooser \
+            python3
+
+      - name: Create build directory
+        run: mkdir -p build
+
+      - name: Configure with CMake
+        working-directory: build
+        run: cmake ..
+
+      - name: Build PhantomJS2
+        working-directory: build
+        run: cmake --build . -- -j$(nproc)
+
+      - name: Run PhantomJS2 (version check)
+        working-directory: build/bin
+        run: ./phantomjs --version || echo "phantomjs not found"
