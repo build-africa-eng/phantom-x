@@ -1,0 +1,14 @@
+# daysUntilStale: 60
+# daysUntilClose: 14
+# exemptLabels:
+#   - pinned
+#   - meta
+#   - keep-alive
+# staleLabel: stale
+# markComment: >
+#   This issue has been automatically marked as stale due to 60 days of inactivity.
+#   If no further activity occurs, it will be closed in 14 days.
+#   You can comment or add a label to prevent this.
+# closeComment: >
+#   This issue was closed due to prolonged inactivity.
+#   If you believe it’s still relevant, feel free to reopen or file a new issue.
