@@ -51,5 +51,5 @@ def handle_request(req):
     for key, value in headers:
         req.send_header(key, value)
     req.end_headers()
-    req.wfile.write(body_bytes)
+    req.wfile.write(body.encode("utf-8"))
     return io.StringIO()  # dummy return
