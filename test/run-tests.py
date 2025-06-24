@@ -355,7 +355,7 @@ class FileHandler(SimpleHTTPRequestHandler):
         self._cached_translated_path = path
         return path
 
-class TCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+class TCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     # This is how you are officially supposed to set SO_REUSEADDR per
     # https://docs.python.org/2/library/socketserver.html#SocketServer.BaseServer.allow_reuse_address
     allow_reuse_address = True
