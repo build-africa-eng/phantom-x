@@ -1,13 +1,11 @@
 import json
 from urllib import parse as urlparse
-from io import StringIO
+from io import BytesIO
 
 
 def handle_request(req):
     url = urlparse.urlparse(req.path)
-    headers = {}
-    for name, value in req.headers.items():
-        headers[name] = value.rstrip()
+    headers = {name: value.rstrip() for name, value in req.headers.items()}
 
     d = dict(
         command=req.command,
@@ -22,10 +20,10 @@ def handle_request(req):
         postdata=req.postdata.decode('utf-8') if isinstance(req.postdata, bytes) else req.postdata,
     )
 
-    body = json.dumps(d, indent=2) + '\n'
+    body = (json.dumps(d, indent=2) + '\n').encode('utf-8')
 
     req.send_response(200)
     req.send_header('Content-Type', 'application/json')
-    req.send_header('Content-Length', str(len(body.encode('utf-8'))))
+    req.send_header('Content-Length', str(len(body)))
     req.end_headers()
-    return StringIO(body)
+    return BytesIO(body)
