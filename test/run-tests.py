@@ -256,7 +256,7 @@ class FileHandler(SimpleHTTPServer.SimpleHTTPRequestHandler, object):
     def do_POST(self):
         try:
             ln = int(self.headers.get('content-length'))
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             self.send_response(400, 'Bad Request')
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()
