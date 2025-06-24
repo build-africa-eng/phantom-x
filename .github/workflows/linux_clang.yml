@@ -1,0 +1,19 @@
+name: Build (Linux Clang)
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: sudo apt update && sudo apt install -y clang cmake qt5-default libqt5webkit5-dev python3
+    - name: Show versions
+      run: clang++ --version && cmake --version && qmake --version && python3 --version
+    - name: Configure
+      run: CC=clang CXX=clang++ ./configure
+    - name: Build
+      run: make -j$(nproc)
+    - name: Run binary
+      run: ./bin/phantomjs --version
+    - name: Run tests
+      run: make check
