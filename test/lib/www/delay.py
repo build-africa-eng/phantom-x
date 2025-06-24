@@ -1,15 +1,21 @@
-import cStringIO as StringIO
-import urlparse
+from io import BytesIO
+import urllib.parse as urlparse
 import time
 
 def handle_request(req):
     url = urlparse.urlparse(req.path)
-    delay = float(int(url.query))
-    time.sleep(delay / 1000) # argument is in milliseconds
+    try:
+        delay = float(int(url.query))
+    except ValueError:
+        delay = 0
 
-    body = "OK ({}ms delayed)\n".format(delay)
+    time.sleep(delay / 1000)  # argument is in milliseconds
+
+    body = "OK ({}ms delayed)\n".format(int(delay))
+    body_bytes = body.encode('utf-8')
+
     req.send_response(200)
     req.send_header('Content-Type', 'text/plain')
-    req.send_header('Content-Length', str(len(body)))
+    req.send_header('Content-Length', str(len(body_bytes)))
     req.end_headers()
-    return StringIO.StringIO(body)
+    return BytesIO(body_bytes)
