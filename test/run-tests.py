@@ -236,7 +236,9 @@ def do_call_subprocess(command, verbose, stdin_data, timeout):
 # HTTP/HTTPS server, presented on localhost to the tests
 #
 
-class FileHandler(SimpleHTTPServer.SimpleHTTPRequestHandler, object):
+from http.server import SimpleHTTPRequestHandler
+
+class FileHandler(SimpleHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
         self._cached_untranslated_path = None
