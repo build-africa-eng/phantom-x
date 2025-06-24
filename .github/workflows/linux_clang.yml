@@ -6,7 +6,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install dependencies
-      run: sudo apt update && sudo apt install -y clang cmake qt5-default libqt5webkit5-dev python3
+  run: sudo apt update && sudo apt install -y clang cmake libqt5webkit5-dev python3
     - name: Show versions
       run: clang++ --version && cmake --version && qmake --version && python3 --version
     - name: Configure
