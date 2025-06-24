@@ -1,18 +1,15 @@
-name: Code style
-
+name: Code Style Check
 on: [push, pull_request]
-
 jobs:
-
-  codestyle:
-    runs-on: ubuntu-18.04
+  format:
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - run: sudo apt install -y clang-format-6.0
-      name: Install clang-format
-    - run: clang-format-6.0 --version
-    - run: bash ./tools/format-code.sh
-      name: Run code formatter
-    - run: git diff
-    - run: git diff --quiet HEAD
-      name: Check if the styling guide is followed
+    - uses: actions/checkout@v4
+    - name: Install clang-format
+      run: sudo apt install -y clang-format
+    - name: Run clang-format
+      run: bash ./tools/format-code.sh
+    - name: Show diff
+      run: git diff
+    - name: Enforce formatting
+      run: git diff --quiet HEAD
