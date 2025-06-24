@@ -1,0 +1,36 @@
+name: 🐛 Bug report
+description: Report something broken
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for helping us improve PhantomJS2!"
+  - type: input
+    id: version
+    attributes:
+      label: PhantomJS2 version
+      description: Run `phantomjs --version`
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: Windows / Linux / macOS, and which version
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log Output
