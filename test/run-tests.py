@@ -33,10 +33,6 @@ TESTS = [
 
 TIMEOUT = 7  # Maximum duration of PhantomJS execution (in seconds).
 
-#
-# Utilities
-#
-
 _COLOR_NONE = {
     "_": "", "^": "",
     "r": "", "R": "",
@@ -203,6 +199,8 @@ def do_call_subprocess(command, verbose, stdin_data, timeout):
         else:
             sys.stdout.write(f"## exit {rc}\n")
     return proc.returncode, stdout, stderr
+    
+# --- Section 2: Handler factory, HTTP/HTTPS server classes (with bytes fix) ---
 
 def make_handler(www_path, verbose, get_response_hook):
     class CustomFileHandler(FileHandler):
@@ -238,7 +236,9 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(400, 'Bad Request')
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()
-            self.wfile.write(b"No or invalid Content-Length in POST (%r)" % str(self.headers.get('content-length')).encode())
+            # ---- BYTES FIX HERE ----
+            msg = "No or invalid Content-Length in POST (%r)" % self.headers.get('content-length')
+            self.wfile.write(msg.encode('utf-8'))
             return
 
         self.postdata = self.rfile.read(ln)
@@ -255,6 +255,8 @@ class FileHandler(http.server.SimpleHTTPRequestHandler):
                              "\n")
             sys.stdout.flush()
 
+        # do not allow direct references to .py(c) files,
+        # or indirect references to __init__.py
         if (path.endswith('.py') or path.endswith('.pyc') or
             path.endswith('__init__')):
             self.send_error(404, 'File not found')
@@ -361,7 +363,7 @@ class HTTPTestServer(object):
         self.httpsd.shutdown()
         del os.environ['TEST_HTTPS_BASE']
 
-# --- BEGIN TEST LOGIC CLASSES ---
+# --- Section 3: Test Logic Classes (TestDetail, TestGroup, etc) ---
 
 class TestDetailCode(collections.namedtuple("TestDetailCode", (
         "idx", "color", "short_label", "label", "long_label"))):
@@ -648,6 +650,8 @@ class TAPTestGroup(TestGroup):
             if pt not in points_already_used:
                 self.add_fail([], "test {} did not report status".format(pt))
 
+# --- Section 4: TestRunner and main entrypoint ---
+
 class TestRunner(object):
     def __init__(self, base_path, phantomjs_exe, options):
         self.base_path       = base_path
@@ -927,4 +931,4 @@ def main():
         sys.exit(2)
 
 if __name__ == "__main__":
-    main()
+    main() 
