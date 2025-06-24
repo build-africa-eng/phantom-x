@@ -4,7 +4,7 @@ import argparse
 import collections
 import errno
 import glob
-import imp
+import importlib.util
 import os
 import platform
 import posixpath
