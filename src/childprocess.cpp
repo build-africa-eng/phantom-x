@@ -46,9 +46,7 @@ ChildProcessContext::~ChildProcessContext() { }
 
 // public:
 
-qint64 ChildProcessContext::pid() const {
-    return m_proc.processId();
-}
+qint64 ChildProcessContext::pid() const { return m_proc.processId(); }
 
 void ChildProcessContext::kill(const QString& signal) {
     // TODO: it would be nice to be able to handle more signals
