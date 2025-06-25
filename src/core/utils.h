@@ -33,24 +33,55 @@
 
 #include "encoding.h"
 #include <QtGlobal>
+#include <QString> // Added for QString
+#include <QMessageLogContext> // Added for QMessageLogContext
 
-class QWebFrame;
+// Forward declaration for WebPage
+class WebPage;
 
 /**
- * Aggregate common utility functions.
+ * @brief Aggregate common utility functions.
  */
-
 namespace Utils {
 
+/**
+ * @brief Custom message handler for Qt messages (qDebug, qWarning, qCritical, qFatal).
+ * @param type The type of message.
+ * @param context The context of the log message.
+ * @param msg The message string.
+ */
 void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg);
 extern bool printDebugMessages;
 
+/**
+ * @brief Injects JavaScript code from a file into the target web page.
+ * @param jsFilePath The path to the JavaScript file.
+ * @param jsFileEnc The encoding of the JavaScript file.
+ * @param libraryPath The base path for resolving relative script paths.
+ * @param targetPage The WebPage object into which to inject the script.
+ * @param startingScript True if this is the main starting script of the application.
+ * @return True if successful, false otherwise.
+ */
 bool injectJsInFrame(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
-    QWebFrame* targetFrame, const bool startingScript = false);
+                     WebPage* targetPage, const bool startingScript = false);
 
+/**
+ * @brief Loads JavaScript for debugging purposes, optionally wrapping it in a __run() function.
+ * @param jsFilePath The path to the JavaScript file.
+ * @param jsFileEnc The encoding of the JavaScript file.
+ * @param libraryPath The base path for resolving relative script paths.
+ * @param targetPage The WebPage object into which to load the script.
+ * @param autorun If true, calls __run() immediately after defining it.
+ * @return True if successful, false otherwise.
+ */
 bool loadJSForDebug(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
-    QWebFrame* targetFrame, const bool autorun = false);
+                    WebPage* targetPage, const bool autorun = false);
 
+/**
+ * @brief Reads content from a Qt resource file.
+ * @param resourceFilePath The path to the resource file (e.g., ":/bootstrap.js").
+ * @return The content of the resource file as a QString (UTF-8 decoded).
+ */
 QString readResourceFileUtf8(const QString& resourceFilePath);
 }; // namespace Utils
 
