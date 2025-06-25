@@ -24,14 +24,12 @@ jobs:
     - name: Install GCC toolchain, Qt5 (without WebKit), Node.js, and dependencies
       shell: bash
       run: |
-        # Removed mingw64/mingw-w64-x86_64-qtwebkit
-        # Note: npm is typically included with nodejs in MSYS2, no separate 'npm' package
         pacman --noconfirm -S \
         mingw64/mingw-w64-x86_64-toolchain \
         mingw64/mingw-w64-x86_64-cmake \
         mingw64/mingw-w64-x86_64-qt5 \
         mingw64/mingw-w64-x86_64-python \
-        mingw64/mingw-w64-x86_64-nodejs # <--- Removed mingw-w64-x86_64-npm
+        mingw64/mingw-w64-x86_64-nodejs
 
     - name: Add mingw64 to PATH
       shell: bash
@@ -61,8 +59,7 @@ jobs:
     - name: Copy Playwright backend script
       run: |
         mkdir -p ./bin
-        # Ensure playwright_backend.js is in src/ if that's where you put it
-        cp ./src/playwright_backend.js ./bin/playwright_backend.js
+        cp ./src/engine/playwright_backend.js ./bin/playwright_backend.js # <--- UPDATED PATH
 
     - name: Install Playwright Node.js dependencies
       working-directory: ./bin
@@ -108,7 +105,7 @@ jobs:
         mingw64/mingw-w64-x86_64-cmake \
         mingw64/mingw-w64-x86_64-qt5 \
         mingw64/mingw-w64-x86_64-python \
-        mingw64/mingw-w64-x86_64-nodejs # <--- Removed mingw-w64-x86_64-npm
+        mingw64/mingw-w64-x86_64-nodejs
 
     - name: Add mingw64 to PATH
       shell: bash
@@ -138,7 +135,7 @@ jobs:
     - name: Copy Playwright backend script
       run: |
         mkdir -p ./bin
-        cp ./src/playwright_backend.js ./bin/playwright_backend.js
+        cp ./src/engine/playwright_backend.js ./bin/playwright_backend.js # <--- UPDATED PATH
 
     - name: Install Playwright Node.js dependencies
       working-directory: ./bin
@@ -166,8 +163,6 @@ jobs:
 
     - name: Install dependencies (Clang, CMake, Qt5 (without WebKit), Node.js, Python)
       run: |
-        # Removed libqt5webkit5-dev
-        # Ensured qtbase5-dev (provides Core, Network, Gui, Widgets)
         sudo apt update && sudo apt install -y clang cmake qtbase5-dev python3 nodejs npm
 
     - name: Show versions
@@ -190,7 +185,7 @@ jobs:
     - name: Copy Playwright backend script
       run: |
         mkdir -p ./bin
-        cp ./src/playwright_backend.js ./bin/playwright_backend.js
+        cp ./src/engine/playwright_backend.js ./bin/playwright_backend.js # <--- UPDATED PATH
 
     - name: Install Playwright Node.js dependencies
       working-directory: ./bin
@@ -223,8 +218,6 @@ jobs:
 
     - name: Install dependencies (GCC, CMake, Qt5 (without WebKit), Node.js, Python)
       run: |
-        # Removed libqt5webkit5-dev
-        # Ensured qtbase5-dev (provides Core, Network, Gui, Widgets)
         sudo apt update && sudo apt install -y g++ cmake qtbase5-dev python3 nodejs npm
 
     - name: Show versions
@@ -247,7 +240,7 @@ jobs:
     - name: Copy Playwright backend script
       run: |
         mkdir -p ./bin
-        cp ./src/playwright_backend.js ./bin/playwright_backend.js
+        cp ./src/engine/playwright_backend.js ./bin/playwright_backend.js # <--- UPDATED PATH
 
     - name: Install Playwright Node.js dependencies
       working-directory: ./bin
