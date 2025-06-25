@@ -211,8 +211,8 @@ void NetworkAccessManager::prepareSslConfiguration(const Config* config) {
     }
 
     if (!config->sslClientCertificateFile().isEmpty()) {
-        QList<QSslCertificate> clientCerts
-            = QSslCertificate::fromPath(config->sslClientCertificateFile(), QSsl::Pem, QRegularExpression::WildcardOption);
+        QList<QSslCertificate> clientCerts = QSslCertificate::fromPath(
+            config->sslClientCertificateFile(), QSsl::Pem, QRegularExpression::WildcardOption);
 
         if (!clientCerts.isEmpty()) {
             QSslCertificate clientCert = clientCerts.first();
