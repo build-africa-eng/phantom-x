@@ -38,120 +38,109 @@
 #include <QFile>
 #include <QtWebKitWidgets/QWebFrame>
 
-static QString findScript(const QString &jsFilePath,
-                          const QString &libraryPath) {
-  if (!jsFilePath.isEmpty()) {
-    QFile jsFile;
+static QString findScript(const QString& jsFilePath, const QString& libraryPath) {
+    if (!jsFilePath.isEmpty()) {
+        QFile jsFile;
 
-    // Is file in the PWD?
-    jsFile.setFileName(QDir::fromNativeSeparators(
-        jsFilePath)); //< Normalise User-provided path
-    if (!jsFile.exists()) {
-      // File is not in the PWD. Is it in the lookup directory?
-      jsFile.setFileName(libraryPath + '/' +
-                         QDir::fromNativeSeparators(jsFilePath));
+        // Is file in the PWD?
+        jsFile.setFileName(QDir::fromNativeSeparators(jsFilePath)); //< Normalise User-provided path
+        if (!jsFile.exists()) {
+            // File is not in the PWD. Is it in the lookup directory?
+            jsFile.setFileName(libraryPath + '/' + QDir::fromNativeSeparators(jsFilePath));
+        }
+
+        return jsFile.fileName();
     }
-
-    return jsFile.fileName();
-  }
-  return QString();
+    return QString();
 }
 
-static QString jsFromScriptFile(const QString &scriptPath,
-                                const Encoding &enc) {
-  QFile jsFile(scriptPath);
-  if (jsFile.exists() && jsFile.open(QFile::ReadOnly)) {
-    QString scriptBody = enc.decode(jsFile.readAll());
-    jsFile.close();
+static QString jsFromScriptFile(const QString& scriptPath, const Encoding& enc) {
+    QFile jsFile(scriptPath);
+    if (jsFile.exists() && jsFile.open(QFile::ReadOnly)) {
+        QString scriptBody = enc.decode(jsFile.readAll());
+        jsFile.close();
 
-    // Remove CLI script heading
-    if (scriptBody.startsWith("#!")) {
-      int len = scriptBody.indexOf(QRegExp("[\r\n]"));
-      if (len == -1) {
-        len = scriptBody.length();
-      }
-      scriptBody.remove(0, len);
+        // Remove CLI script heading
+        if (scriptBody.startsWith("#!")) {
+            int len = scriptBody.indexOf(QRegExp("[\r\n]"));
+            if (len == -1) {
+                len = scriptBody.length();
+            }
+            scriptBody.remove(0, len);
+        }
+
+        return scriptBody;
+    } else {
+        return QString();
     }
-
-    return scriptBody;
-  } else {
-    return QString();
-  }
 }
 
 namespace Utils {
 
 bool printDebugMessages = false;
 
-void messageHandler(QtMsgType type, const QMessageLogContext &context,
-                    const QString &msg) {
-  Q_UNUSED(context);
-  QDateTime now = QDateTime::currentDateTime();
+void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg) {
+    Q_UNUSED(context);
+    QDateTime now = QDateTime::currentDateTime();
 
-  switch (type) {
-  case QtDebugMsg:
-    if (printDebugMessages) {
-      fprintf(stderr, "%s [DEBUG] %s\n", qPrintable(now.toString(Qt::ISODate)),
-              qPrintable(msg));
+    switch (type) {
+    case QtDebugMsg:
+        if (printDebugMessages) {
+            fprintf(stderr, "%s [DEBUG] %s\n", qPrintable(now.toString(Qt::ISODate)), qPrintable(msg));
+        }
+        break;
+    case QtWarningMsg:
+        if (printDebugMessages) {
+            fprintf(stderr, "%s [WARNING] %s\n", qPrintable(now.toString(Qt::ISODate)), qPrintable(msg));
+        }
+        break;
+    case QtCriticalMsg:
+        fprintf(stderr, "%s [CRITICAL] %s\n", qPrintable(now.toString(Qt::ISODate)), qPrintable(msg));
+        break;
+    case QtFatalMsg:
+        fprintf(stderr, "%s [FATAL] %s\n", qPrintable(now.toString(Qt::ISODate)), qPrintable(msg));
+        abort();
     }
-    break;
-  case QtWarningMsg:
-    if (printDebugMessages) {
-      fprintf(stderr, "%s [WARNING] %s\n",
-              qPrintable(now.toString(Qt::ISODate)), qPrintable(msg));
-    }
-    break;
-  case QtCriticalMsg:
-    fprintf(stderr, "%s [CRITICAL] %s\n", qPrintable(now.toString(Qt::ISODate)),
-            qPrintable(msg));
-    break;
-  case QtFatalMsg:
-    fprintf(stderr, "%s [FATAL] %s\n", qPrintable(now.toString(Qt::ISODate)),
-            qPrintable(msg));
-    abort();
-  }
 }
 
-bool injectJsInFrame(const QString &jsFilePath, const Encoding &jsFileEnc,
-                     const QString &libraryPath, QWebFrame *targetFrame,
-                     const bool startingScript) {
-  // Don't do anything if an empty string is passed
-  QString scriptPath = findScript(jsFilePath, libraryPath);
-  QString scriptBody = jsFromScriptFile(scriptPath, jsFileEnc);
-  if (scriptBody.isEmpty()) {
-    if (startingScript) {
-      Terminal::instance()->cerr(QString("Can't open '%1'").arg(jsFilePath));
-    } else {
-      qWarning("Can't open '%s'", qPrintable(jsFilePath));
+bool injectJsInFrame(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
+    QWebFrame* targetFrame, const bool startingScript) {
+    // Don't do anything if an empty string is passed
+    QString scriptPath = findScript(jsFilePath, libraryPath);
+    QString scriptBody = jsFromScriptFile(scriptPath, jsFileEnc);
+    if (scriptBody.isEmpty()) {
+        if (startingScript) {
+            Terminal::instance()->cerr(QString("Can't open '%1'").arg(jsFilePath));
+        } else {
+            qWarning("Can't open '%s'", qPrintable(jsFilePath));
+        }
+        return false;
     }
-    return false;
-  }
-  // Execute JS code in the context of the document
-  targetFrame->evaluateJavaScript(scriptBody);
-  return true;
+    // Execute JS code in the context of the document
+    targetFrame->evaluateJavaScript(scriptBody);
+    return true;
 }
 
-bool loadJSForDebug(const QString &jsFilePath, const Encoding &jsFileEnc,
-                    const QString &libraryPath, QWebFrame *targetFrame,
-                    const bool autorun) {
-  QString scriptPath = findScript(jsFilePath, libraryPath);
-  QString scriptBody = jsFromScriptFile(scriptPath, jsFileEnc);
+bool loadJSForDebug(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
+    QWebFrame* targetFrame, const bool autorun) {
+    QString scriptPath = findScript(jsFilePath, libraryPath);
+    QString scriptBody = jsFromScriptFile(scriptPath, jsFileEnc);
 
-  scriptBody = QString("function __run() {\n%1\n}").arg(scriptBody);
-  targetFrame->evaluateJavaScript(scriptBody);
+    scriptBody = QString("function __run() {\n%1\n}").arg(scriptBody);
+    targetFrame->evaluateJavaScript(scriptBody);
 
-  if (autorun) {
-    targetFrame->evaluateJavaScript("__run()");
-  }
+    if (autorun) {
+        targetFrame->evaluateJavaScript("__run()");
+    }
 
-  return true;
+    return true;
 }
 
-QString readResourceFileUtf8(const QString &resourceFilePath) {
-  QFile f(resourceFilePath);
-  f.open(QFile::ReadOnly); //< It's OK to assume this succeed. If it doesn't, we
-                           // have a bigger problem.
-  return QString::fromUtf8(f.readAll());
+QString readResourceFileUtf8(const QString& resourceFilePath) {
+    QFile f(resourceFilePath);
+    f.open(QFile::ReadOnly); //< It's OK to assume this succeed. If it doesn't, we
+                             // have a bigger problem.
+    return QString::fromUtf8(f.readAll());
 }
 
 }; // namespace Utils

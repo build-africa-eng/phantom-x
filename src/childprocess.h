@@ -44,56 +44,56 @@
  * ChildProcess
  */
 class ChildProcessContext : public QObject {
-  Q_OBJECT
-  Q_PROPERTY(qint64 pid READ pid)
+    Q_OBJECT
+    Q_PROPERTY(qint64 pid READ pid)
 
 public:
-  explicit ChildProcessContext(QObject *parent = 0);
-  virtual ~ChildProcessContext();
+    explicit ChildProcessContext(QObject* parent = 0);
+    virtual ~ChildProcessContext();
 
-  qint64 pid() const;
-  Q_INVOKABLE void kill(const QString &signal = "SIGTERM");
+    qint64 pid() const;
+    Q_INVOKABLE void kill(const QString& signal = "SIGTERM");
 
-  Q_INVOKABLE void _setEncoding(const QString &encoding);
-  Q_INVOKABLE bool _start(const QString &cmd, const QStringList &args);
+    Q_INVOKABLE void _setEncoding(const QString& encoding);
+    Q_INVOKABLE bool _start(const QString& cmd, const QStringList& args);
 
-  Q_INVOKABLE qint64 _write(const QString &chunk, const QString &encoding);
-  Q_INVOKABLE void _close();
+    Q_INVOKABLE qint64 _write(const QString& chunk, const QString& encoding);
+    Q_INVOKABLE void _close();
 
 signals:
-  void exit(const int code) const;
+    void exit(const int code) const;
 
-  /**
-   * For emulating `child.stdout.on("data", function (data) {})`
-   */
-  void stdoutData(const QString &data) const;
-  /**
-   * For emulating `child.stderr.on("data", function (data) {})`
-   */
-  void stderrData(const QString &data) const;
+    /**
+     * For emulating `child.stdout.on("data", function (data) {})`
+     */
+    void stdoutData(const QString& data) const;
+    /**
+     * For emulating `child.stderr.on("data", function (data) {})`
+     */
+    void stderrData(const QString& data) const;
 
 private slots:
-  void _readyReadStandardOutput();
-  void _readyReadStandardError();
-  void _error(const QProcess::ProcessError error);
-  void _finished(const int exitCode, const QProcess::ExitStatus exitStatus);
+    void _readyReadStandardOutput();
+    void _readyReadStandardError();
+    void _error(const QProcess::ProcessError error);
+    void _finished(const int exitCode, const QProcess::ExitStatus exitStatus);
 
 private:
-  QProcess m_proc;
-  Encoding m_encoding;
+    QProcess m_proc;
+    Encoding m_encoding;
 };
 
 /**
  * Helper class for child_process module
  */
 class ChildProcess : public QObject {
-  Q_OBJECT
+    Q_OBJECT
 
 public:
-  explicit ChildProcess(QObject *parent = 0);
-  virtual ~ChildProcess();
+    explicit ChildProcess(QObject* parent = 0);
+    virtual ~ChildProcess();
 
-  Q_INVOKABLE QObject *_createChildProcessContext();
+    Q_INVOKABLE QObject* _createChildProcessContext();
 };
 
 #endif // CHILDPROCESS_H
