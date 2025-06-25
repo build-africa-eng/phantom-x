@@ -1,60 +1,70 @@
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.5)
 project(phantomjs)
 
+# C++ standard
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
+
+# Output binary to /bin/
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Qt
-find_package(Qt5 COMPONENTS Core Network WebKitWidgets REQUIRED)
+# Find required packages
+find_package(Qt5 5.5 REQUIRED COMPONENTS Core Network WebKitWidgets)
 find_package(Threads REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-message("Using Qt version ${Qt5Core_VERSION}")
-if (Qt5Core_VERSION VERSION_LESS 5.5.0)
-  message(FATAL_ERROR "This version of Qt is not supported. Please use Qt 5.5 or later")
-endif()
+message(STATUS "Using Qt version ${Qt5Core_VERSION}")
 
-# Sources
-file(GLOB_RECURSE PHANTOMJS_SOURCES src/*.cpp)
-# Optional: filter out test files
-# list(FILTER PHANTOMJS_SOURCES EXCLUDE REGEX ".*test/.*")
+# Source files
+file(GLOB_RECURSE SRC_FILES src/*.cpp)
+file(GLOB_RECURSE HDR_FILES src/*.h)
 
-# Third-party
+# Optional: exclude test files
+list(FILTER SRC_FILES EXCLUDE REGEX ".*/tests?/.*")
+
+# Third-party sources
 set(THIRDPARTY_SOURCES
   src/mongoose/mongoose.c
   src/qcommandline/qcommandline.cpp
   src/linenoise/src/linenoise.c
 )
+
+# Include directories
 include_directories(
-  src
-  src/linenoise/src
-  src/mongoose
-  src/qcommandline
+  ${PROJECT_SOURCE_DIR}/src
+  ${PROJECT_SOURCE_DIR}/src/linenoise/src
+  ${PROJECT_SOURCE_DIR}/src/mongoose
+  ${PROJECT_SOURCE_DIR}/src/qcommandline
 )
 
-# Platform-specific
-if (WIN32)
+# Platform-specific definitions and libs
+if(WIN32)
   set(EXTRA_LIBS ws2_32)
   add_definitions(-DQCOMMANDLINE_STATIC)
 else()
   set(EXTRA_LIBS dl)
 endif()
 
-# Target
+# PhantomJS target
 add_executable(${PROJECT_NAME}
   src/phantomjs.qrc
-  ${PHANTOMJS_SOURCES}
+  ${SRC_FILES}
   ${THIRDPARTY_SOURCES}
 )
+
+# Link libraries
 target_link_libraries(${PROJECT_NAME}
-  ${EXTRA_LIBS}
-  Qt5::Core Qt5::Network Qt5::WebKitWidgets
+  Qt5::Core
+  Qt5::Network
+  Qt5::WebKitWidgets
   Threads::Threads
+  ${EXTRA_LIBS}
 )
 
+# Install target
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
 # Test target
