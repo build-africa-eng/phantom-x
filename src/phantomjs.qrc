@@ -9,6 +9,6 @@
         <file>modules/system.js</file>
         <file>modules/child_process.js</file>
         <file>modules/cookiejar.js</file>
-        <file>modules/repl.js</file>
+        <file>modules/ repl.js</file>
     </qresource>
 </RCC>
