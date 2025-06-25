@@ -8,6 +8,7 @@ jobs:
     env:
       CC: clang
       CXX: clang++
+
     steps:
     - uses: actions/checkout@v2
 
@@ -15,7 +16,7 @@ jobs:
       shell: bash
       run: echo "C:\\msys64\\usr\\bin" >> $GITHUB_PATH
 
-    - name: Initialize pacman and mirrors
+    - name: Update pacman and mirrors
       run: |
         pacman -Sy --noconfirm
         pacman -S --noconfirm pacman-mirrors
@@ -38,12 +39,12 @@ jobs:
         qmake --version
         python --version
 
-    - name: ./configure
+    - name: Configure PhantomJS
       run: bash ./configure
       env:
         CMAKE_CMD: 'cmake -G "MinGW Makefiles"'
 
-    - name: make
+    - name: Build with mingw32-make
       run: mingw32-make
 
     - name: Inspect built binary
