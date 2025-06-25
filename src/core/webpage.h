@@ -32,313 +32,278 @@
 #define WEBPAGE_H
 
 #include <QObject>
-#include <QMap>
-#include <QVariantMap>
+#include <QPoint>
+#include <QRect>
+#include <QSize>
+#include <QString>
+#include <QVariant>
 #include <QVariantList>
-#include <QUrl>
-#include <QPointer> // For safe pointers to other WebPage instances
+#include <QVariantMap>
+#include <QPointer> // For safe pointers to other QObjects like WebPage itself
+#include <QNetworkRequest> // Needed for openUrl, load function
+#include <QNetworkAccessManager> // Needed for QNetworkAccessManager::Operation
 
-#include "cookiejar.h" // Still needed
-#include "ienginebackend.h" // Our new engine abstraction
+#include "ienginebackend.h" // The new abstraction
+#include "cookiejar.h"      // Still needed for public API
+// NetworkAccessManager is now largely handled internally by IEngineBackend
+// #include "networkaccessmanager.h" // Removed as direct usage moves to backend
 
-// Forward declarations of classes that WebPage depends on
-// (No longer QtWebKit specific for CustomPage etc.)
-class Config; // Still relevant for configuration
-class WebpageCallbacks; // Still relevant for JS callbacks (will be re-implemented)
-class NetworkAccessManager; // Replaced by IEngineBackend's network handling
-class QWebInspector; // This will likely be removed or become conceptual for Playwright
-class Phantom; // Phantom creates WebPage instances
+// Forward declarations
+class Callback;
+class Phantom; // Assuming Phantom is still a singleton controlling the lifecycle
+class QPdfWriter; // Used in renderPdf, which is now delegated to IEngineBackend
 
-// No more direct QtWebKit includes!
-// #include <QPdfWriter.h> // QPdfWriter is part of Qt GUI, not WebKit specific, so can stay if WebPage handles PDF
-// writing itself, or moved to backend #include <QtWebKitWidgets/QWebFrame> #include <QtWebKitWidgets/QWebPage>
+// Removed CustomPage class entirely. Its responsibilities are split between
+// IEngineBackend implementation and WebPage's handling of IEngineBackend signals.
+// class CustomPage : public QWebPage { ... };
 
-class WebPage : public QObject {
+class WebPage : public QObject
+{
     Q_OBJECT
-    Q_PROPERTY(QString title READ title NOTIFY titleChanged)
-    Q_PROPERTY(QString frameTitle READ frameTitle NOTIFY frameTitleChanged) // Renamed for consistency
-    Q_PROPERTY(QString content READ content WRITE setContent NOTIFY contentChanged)
-    Q_PROPERTY(QString frameContent READ frameContent WRITE setFrameContent NOTIFY
-            frameContentChanged) // Renamed for consistency
-    Q_PROPERTY(QString url READ url NOTIFY urlChanged)
-    Q_PROPERTY(QString frameUrl READ frameUrl NOTIFY frameUrlChanged) // Renamed for consistency
-    Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged) // Added loadingChanged signal
-    Q_PROPERTY(
-        int loadingProgress READ loadingProgress NOTIFY loadingProgressChanged) // Added loadingProgressChanged signal
-    Q_PROPERTY(bool canGoBack READ canGoBack)
-    Q_PROPERTY(bool canGoForward READ canGoForward)
-    Q_PROPERTY(QString plainText READ plainText NOTIFY plainTextChanged)
-    Q_PROPERTY(QString framePlainText READ framePlainText NOTIFY framePlainTextChanged) // Renamed for consistency
-    Q_PROPERTY(QString libraryPath READ libraryPath WRITE setLibraryPath)
-    Q_PROPERTY(QString offlineStoragePath READ offlineStoragePath)
-    Q_PROPERTY(int offlineStorageQuota READ offlineStorageQuota)
-    Q_PROPERTY(QVariantMap viewportSize READ viewportSize WRITE setViewportSize)
-    Q_PROPERTY(QVariantMap paperSize READ paperSize WRITE setPaperSize) // Will be translated to renderPdf options
-    Q_PROPERTY(QVariantMap clipRect READ clipRect WRITE setClipRect)
-    Q_PROPERTY(QVariantMap scrollPosition READ scrollPosition WRITE setScrollPosition)
-    Q_PROPERTY(bool navigationLocked READ navigationLocked WRITE setNavigationLocked)
-    Q_PROPERTY(QVariantMap customHeaders READ customHeaders WRITE setCustomHeaders)
-    Q_PROPERTY(qreal zoomFactor READ zoomFactor WRITE setZoomFactor)
-    Q_PROPERTY(QVariantList cookies READ cookies WRITE setCookies)
-    Q_PROPERTY(QString windowName READ windowName)
-    Q_PROPERTY(QObjectList pages READ pages)
-    Q_PROPERTY(QStringList pagesWindowName READ pagesWindowName)
-    Q_PROPERTY(bool ownsPages READ ownsPages WRITE setOwnsPages)
-    Q_PROPERTY(QStringList framesName READ framesName)
-    Q_PROPERTY(QString frameName READ frameName)
-    Q_PROPERTY(int framesCount READ framesCount)
-    Q_PROPERTY(QString focusedFrameName READ focusedFrameName)
-    Q_PROPERTY(QObject* cookieJar READ cookieJar WRITE setCookieJarFromQObject)
 
 public:
-    // Constructor now takes parent and optional base URL
-    WebPage(QObject* parent, const QUrl& baseUrl = QUrl());
-    virtual ~WebPage();
+    explicit WebPage(QObject* parent = nullptr, const QUrl& baseUrl = QUrl());
+    ~WebPage() override;
 
-    // No more direct QWebFrame access. Operations go through IEngineBackend.
-    // QWebFrame* mainFrame(); // REMOVED
-
+    // --- Core Properties (now cached from IEngineBackend) ---
     QString content() const;
-    QString frameContent() const;
-    void setContent(const QString& content); // This will delegate to backend->setContent
-    void setContent(const QString& content, const QString& baseUrl); // Overload for setting base URL
-    void setFrameContent(const QString& content); // Delegates to backend, possibly requiring frame switch first
-    void setFrameContent(const QString& content, const QString& baseUrl); // Overload
-
+    void setContent(const QString& content);
+    void setContent(const QString& content, const QString& baseUrl);
+    QString frameContent() const; // Will now operate on the 'current frame' set via backend
+    void setFrameContent(const QString& content);
+    void setFrameContent(const QString& content, const QString& baseUrl);
     QString title() const;
-    QString frameTitle() const;
-
+    QString frameTitle() const; // Will now operate on the 'current frame' set via backend
     QString url() const;
-    QString frameUrl() const;
-
+    QString frameUrl() const; // Will now operate on the 'current frame' set via backend
     bool loading() const;
     int loadingProgress() const;
-
     QString plainText() const;
-    QString framePlainText() const;
-
-    QString libraryPath() const;
-    void setLibraryPath(const QString& dirPath);
-
-    QString offlineStoragePath() const;
-    int offlineStorageQuota() const;
-
-    void setViewportSize(const QVariantMap& size);
-    QVariantMap viewportSize() const;
-
-    void setClipRect(const QVariantMap& size);
-    QVariantMap clipRect() const;
-
-    void setScrollPosition(const QVariantMap& size);
-    QVariantMap scrollPosition() const;
-
-    void setPaperSize(const QVariantMap& size); // This will be used in renderPdf options
-    QVariantMap paperSize() const; // Will return the cached paperSize settings
-
-    void setNavigationLocked(bool lock);
-    bool navigationLocked() const; // Changed to const
-
-    void setCustomHeaders(const QVariantMap& headers);
-    QVariantMap customHeaders() const;
-
-    int showInspector(const int remotePort = -1); // Will call backend's showInspector
-
-    // These methods for PDF headers/footers will be passed as part of renderPdf options.
-    // They are no longer direct properties of WebPage that QPdfWriter uses.
-    // You might keep helper methods to format them into the renderPdf options map.
-    QString footer(int page, int numPages);
-    qreal footerHeight() const;
-    QString header(int page, int numPages);
-    qreal headerHeight() const;
-
-    void setZoomFactor(qreal zoom);
-    qreal zoomFactor() const;
-
+    QString framePlainText() const; // Will now operate on the 'current frame' set via backend
     QString windowName() const;
 
-    QObjectList pages() const;
-    QStringList pagesWindowName() const;
-    bool ownsPages() const;
-    void setOwnsPages(const bool owns);
-
-    int framesCount() const;
-    QStringList framesName() const;
-    QString frameName() const;
-    QString focusedFrameName() const;
-
-public slots:
-    void openUrl(const QString& address, const QVariant& op = QVariant(), const QVariantMap& settings = QVariantMap());
-    void release(); // Will close the backend and remove from pages list
-    void close(); // Delegates to backend's close equivalent
-
-    QVariant evaluateJavaScript(const QString& code);
-    bool render(const QString& fileName, const QVariantMap& map = QVariantMap()); // Options map for rendering
-    QString renderBase64(const QByteArray& format = "png"); // Delegates to backend, converts QByteArray to QString
-    bool injectJs(const QString& jsFilePath);
-    void _appendScriptElement(const QString& scriptUrl); // Will delegate to backend's JS injection
-    QObject* _getGenericCallback(); // These will be re-implemented using IPC
-    QObject* _getFilePickerCallback();
-    QObject* _getJsConfirmCallback();
-    QObject* _getJsPromptCallback();
-    QObject* _getJsInterruptCallback();
-    void _uploadFile(const QString& selector, const QStringList& fileNames);
-    void sendEvent(const QString& type, const QVariant& arg1 = QVariant(), const QVariant& arg2 = QVariant(),
-        const QString& mouseButton = QString(), const QVariant& modifierArg = QVariant());
-
-    QObject* getPage(const QString& windowName) const; // New way to find child pages
-
-    // Frame switching methods - now delegate to IEngineBackend
-    int childFramesCount() const; // DEPRECATED, use framesCount()
-    QStringList childFramesName() const; // DEPRECATED, use framesName()
-    bool switchToFrame(const QString& frameName);
-    bool switchToChildFrame(const QString& frameName); // DEPRECATED, use switchToFrame
-    bool switchToFrame(const int framePosition);
-    bool switchToChildFrame(const int framePosition); // DEPRECATED, use switchToFrame
-    void switchToMainFrame();
-    bool switchToParentFrame();
-    void switchToFocusedFrame();
-    QString currentFrameName() const; // DEPRECATED, use frameName()
-
-    void setCookieJar(CookieJar* cookieJar);
-    void setCookieJarFromQObject(QObject* cookieJar); // Handles QObject* from JS
-    CookieJar* cookieJar(); // Returns the associated CookieJar
-
-    bool setCookies(const QVariantList& cookies);
-    QVariantList cookies() const;
-    bool addCookie(const QVariantMap& cookie);
-    bool deleteCookie(const QString& cookieName);
-    bool clearCookies();
-
+    // --- Navigation ---
     bool canGoBack();
     bool goBack();
     bool canGoForward();
     bool goForward();
-    bool go(int historyRelativeIndex);
+    bool go(int historyItemRelativeIndex);
     void reload();
     void stop();
+    void openUrl(const QString& address, const QVariant& op, const QVariantMap& settings);
 
-    void stopJavaScript(); // Delegates to backend
-    void clearMemoryCache(); // Delegates to backend
+    // --- Rendering ---
+    bool render(const QString& fileName, const QVariantMap& option);
+    QString renderBase64(const QByteArray& format);
+    void setViewportSize(const QVariantMap& size);
+    QVariantMap viewportSize() const;
+    void setClipRect(const QVariantMap& size);
+    QVariantMap clipRect() const;
+    void setScrollPosition(const QVariantMap& size);
+    QVariantMap scrollPosition() const;
+    void setPaperSize(const QVariantMap& size);
+    QVariantMap paperSize() const;
+    void setZoomFactor(qreal zoom);
+    qreal zoomFactor() const;
 
-    void setProxy(const QString& proxyUrl); // Delegates to backend's setNetworkProxy
+    // --- JavaScript Execution ---
+    QVariant evaluateJavaScript(const QString& code);
+    bool injectJs(const QString& jsFilePath); // Delegates to IEngineBackend::injectJavaScriptFile
 
-    qreal stringToPointSize(const QString&) const; // Helper, not directly backend
-    qreal printMargin(const QVariantMap&, const QString&); // Helper, will be used in renderPdf options
-    qreal getHeight(const QVariantMap&, const QString&) const; // Helper, for content measurement
+    // --- Settings ---
+    void applySettings(const QVariantMap& def); // Now delegates to IEngineBackend::applySettings
+    void setProxy(const QString& proxyUrl); // Delegates to IEngineBackend::setNetworkProxy
+    QString userAgent() const; // Delegates to IEngineBackend::userAgent
+    void setNavigationLocked(bool lock); // Delegates to IEngineBackend::setNavigationLocked
+    bool navigationLocked(); // Delegates to IEngineBackend::navigationLocked
+    void setCustomHeaders(const QVariantMap& headers); // Delegates to IEngineBackend::setCustomHeaders
+    QVariantMap customHeaders() const; // Delegates to IEngineBackend::customHeaders
+
+    // --- Cookie Management ---
+    void setCookieJar(CookieJar* cookieJar); // Delegates to IEngineBackend::setCookieJar
+    void setCookieJarFromQObject(QObject* cookieJar);
+    CookieJar* cookieJar(); // Returns the locally held CookieJar
+    bool setCookies(const QVariantList& cookies); // Delegates to IEngineBackend::setCookies
+    QVariantList cookies() const; // Delegates to IEngineBackend::cookies
+    bool addCookie(const QVariantMap& cookie); // Delegates to IEngineBackend::addCookie
+    bool deleteCookie(const QString& cookieName); // Delegates to IEngineBackend::deleteCookie
+    void clearCookies(); // Delegates to IEngineBackend::clearCookies
+
+    // --- Other Settings/Properties ---
+    QString libraryPath() const; // This is a WebPage property, not backend specific
+    void setLibraryPath(const QString& libraryPath); // WebPage property
+    QString offlineStoragePath() const; // Delegates to IEngineBackend
+    int offlineStorageQuota() const; // Delegates to IEngineBackend
+
+    // --- Frame and Page Management ---
+    QObjectList pages() const; // Returns other WebPage instances
+    QStringList pagesWindowName() const;
+    QObject* getPage(const QString& windowName) const;
+    bool ownsPages() const;
+    void setOwnsPages(const bool owns);
+    int framesCount() const;
+    int childFramesCount() const; // deprecated, calls framesCount()
+    QStringList framesName() const;
+    QStringList childFramesName() const; // deprecated, calls framesName()
+    bool switchToFrame(const QString& frameName);
+    bool switchToChildFrame(const QString& frameName); // deprecated
+    bool switchToFrame(int framePosition);
+    bool switchToChildFrame(int framePosition); // deprecated
+    void switchToMainFrame();
+    bool switchToParentFrame();
+    void switchToFocusedFrame();
+    QString frameName() const; // Delegates to IEngineBackend
+    QString currentFrameName() const; // deprecated, calls frameName()
+    QString focusedFrameName() const; // Delegates to IEngineBackend
+
+    // --- Event Handling ---
+    void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2,
+                   const QString& mouseButton, const QVariant& modifierArg); // Delegates to IEngineBackend
+    void _uploadFile(const QString& selector, const QStringList& fileNames); // Delegates to IEngineBackend
+    void stopJavaScript(); // Delegates to IEngineBackend (via m_shouldInterruptJs)
+    void clearMemoryCache(); // Delegates to IEngineBackend
+
+    // --- Callbacks (exposed to JS, managed by WebPage, triggered by IEngineBackend) ---
+    // These will return the local Callback objects to be exposed to JS by Phantom's bootstrap
+    QObject* _getGenericCallback();
+    QObject* _getFilePickerCallback();
+    QObject* _getJsConfirmCallback();
+    QObject* _getJsPromptCallback();
+    QObject* _getJsInterruptCallback();
+
+    // --- DevTools ---
+    int showInspector(const int port); // Delegates to IEngineBackend
+
+    // --- Internal Callback Handlers (Called by WebPage's handleEngine... methods) ---
+    // These methods will contain the logic previously in CustomPage's overrides
+    // They are public here because CustomPage accessed them directly, but now
+    // they will be called by handleEngine... methods.
+    QString filePicker(const QString& oldFile); // Will use m_filePickerCallback
+    bool javaScriptConfirm(const QString& msg); // Will use m_jsConfirmCallback
+    bool javaScriptPrompt(const QString& msg, const QString& defaultValue, QString* result); // Will use m_jsPromptCallback
+    void javascriptInterrupt(); // Will use m_jsInterruptCallback
 
 signals:
-    // Core Navigation/Loading
-    void initialized();
-    void loadStarted(); // Renamed from QWebPage signal for consistency
-    void loadFinished(const QString& status); // Status string ("success", "fail")
-    void urlChanged(const QString& url); // String version
-    void titleChanged(const QString& title);
-    void contentChanged(const QString& content); // Emit when content updates
-    void plainTextChanged(const QString& plainText); // Emit when plain text updates
-    void loadingChanged(); // New signal for Q_PROPERTY(bool loading)
-    void loadingProgressChanged(); // New signal for Q_PROPERTY(int loadingProgress)
+    // --- Core WebPage Signals (re-emitted from IEngineBackend signals) ---
+    void loadStarted();
+    void loadFinished(const QString& status); // "success" or "fail"
+    void initialized(); // After JS window object is ready
+    void urlChanged(const QString& url);
+    void navigationRequested(const QVariant& url, const QVariant& navigationType, bool willNavigate, bool isMainFrame);
+    void rawPageCreated(WebPage* newPage); // Emitted when a new child page is created by backend
 
-    // JS Dialogs/Errors
-    void javaScriptAlertSent(const QString& msg);
+    // --- JavaScript Interaction Signals (re-emitted from IEngineBackend signals) ---
+    void javaScriptAlertSent(const QString& message);
     void javaScriptConsoleMessageSent(const QString& message);
-    void javaScriptErrorSent(const QString& msg, int lineNumber, const QString& sourceID, const QString& stack);
-    void filePicker(const QString& oldFile); // Signal to request user input for file picker
+    void javaScriptErrorSent(const QString& message, int lineNumber, const QString& sourceID, const QString& stack);
 
-    // Resource Handling (more detailed data from IEngineBackend)
-    void resourceRequested(const QVariant& requestData, QObject* request); // QVariant should be QVariantMap now
-    void resourceReceived(const QVariant& resource); // QVariant should be QVariantMap now
-    void resourceError(const QVariant& errorData); // QVariant should be QVariantMap now
-    void resourceTimeout(const QVariant& errorData); // QVariant should be QVariantMap now
+    // --- Resource Loading Signals (re-emitted from IEngineBackend signals) ---
+    void resourceRequested(QVariant requestData, QObject* reply); // reply placeholder for request handle
+    void resourceReceived(QVariant responseData);
+    void resourceError(QVariant errorData);
+    void resourceTimeout(QVariant timeoutData);
 
-    // Navigation and Popups
-    void navigationRequested(
-        const QString& url, const QString& navigationType, bool navigationLocked, bool isMainFrame);
-    void rawPageCreated(QObject* page); // Will emit a new WebPage* wrapped as QObject*
-    void closing(QObject* page); // Page is about to close, pass itself as QObject*
-    void repaintRequested(const int x, const int y, const int width, const int height);
+    // --- Rendering Signals (re-emitted from IEngineBackend signals) ---
+    void repaintRequested(int x, int y, int width, int height);
+
+    // --- Lifecycle ---
+    void closing(WebPage* page); // When this WebPage instance is about to be deleted
 
 private slots:
-    // Internal slots to connect to IEngineBackend signals and manage cached properties
+    // --- Internal Slots to handle signals from IEngineBackend ---
     void handleEngineLoadStarted(const QUrl& url);
-    void handleEngineLoadFinished(bool ok, const QUrl& url);
+    void handleEngineLoadFinished(bool success, const QUrl& url);
     void handleEngineLoadingProgress(int progress);
     void handleEngineUrlChanged(const QUrl& url);
     void handleEngineTitleChanged(const QString& title);
-    void handleEngineContentsChanged(); // Generic signal from backend when HTML/text updates
-    void handleEngineJavaScriptAlert(const QString& msg);
-    void handleEngineJavaScriptConsoleMessage(const QString& message);
-    void handleEngineJavaScriptError(const QString& msg, int lineNumber, const QString& sourceID, const QString& stack);
-    void handleEngineFilePickerDialog(const QString& currentFilePath); // Signal from backend for file pickers
-    void handleEngineResourceRequested(const QVariantMap& requestData);
+    void handleEngineContentsChanged();
+    void handleEngineNavigationRequested(const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
+    void handleEnginePageCreated(IEngineBackend* newPageBackend); // New backend for the new page
+    void handleEngineWindowCloseRequested();
+
+    // --- Internal Slots for JS Dialogs (triggered by IEngineBackend) ---
+    void handleEngineJavaScriptAlertSent(const QString& msg);
+    void handleEngineJavaScriptConfirmRequested(const QString& message, bool* result);
+    void handleEngineJavaScriptPromptRequested(const QString& message, const QString& defaultValue, QString* result, bool* accepted);
+    void handleEngineJavascriptInterruptRequested(bool* interrupt);
+    void handleEngineFilePickerRequested(const QString& oldFile, QString* chosenFile, bool* handled);
+
+    // --- Internal Slots for Resource Events (triggered by IEngineBackend) ---
+    void handleEngineResourceRequested(const QVariantMap& requestData, QObject* request);
     void handleEngineResourceReceived(const QVariantMap& responseData);
     void handleEngineResourceError(const QVariantMap& errorData);
     void handleEngineResourceTimeout(const QVariantMap& errorData);
-    void handleEngineNavigationRequested(
-        const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
-    void handleEngineWebPageCreated(IEngineBackend* newBackend); // Creates a new WebPage
-    void handleEngineClosing(); // Backend closing, emit closing() for this page
-    void handleEngineRepaintRequested(const QRect& dirtyRect);
-    void handleEngineInitialized(); // From backend, re-emit WebPage::initialized
 
-    // For internal state management
-    void handleChildPageClosing(QObject* page); // Slot to track child pages closing themselves
+    // --- Internal Slots for Rendering Events (triggered by IEngineBackend) ---
+    void handleEngineRepaintRequested(const QRect& dirtyRect);
+
+    // --- Other internal slots ---
+    void finish(bool ok); // Original finish slot, now called by handleEngineLoadFinished
+    // This slot is for the *logical* current frame, not a QWebFrame
+    // It's still useful if WebPage wants to track its "current" frame context
+    // even if the underlying engine handles the actual switching.
+    void changeCurrentFrame(IEngineBackend* frameBackend); // Renamed from QWebFrame to IEngineBackend*
+    void handleCurrentFrameDestroyed(); // This might become less relevant if backend manages frames directly
 
 private:
-    // Our abstracted engine backend
-    IEngineBackend* m_engineBackend;
+    // Member variables
+    IEngineBackend* m_engineBackend; // The actual browser engine implementation
+    QPointer<IEngineBackend> m_currentFrameBackend; // Tracks the currently "active" frame for evaluation/manipulation
 
-    // Cached properties that are updated via signals from IEngineBackend
-    QString m_currentTitle;
-    QString m_currentFrameTitle; // Will need a mechanism to get focused frame title from backend
-    QString m_currentContent;
-    QString m_currentFrameContent;
-    QUrl m_currentUrl;
-    QUrl m_currentFrameUrl;
-    bool m_isLoading;
-    int m_currentLoadingProgress;
-    QString m_currentPlainText;
-    QString m_currentFramePlainText;
+    bool m_navigationLocked;
+    QPoint m_mousePos; // Still needed for mouse event simulation
+    bool m_ownsPages;
+    int m_loadingProgress;
+    bool m_shouldInterruptJs; // Used internally for stopJavaScript()
 
-    // Other internal state variables
-    QVariantMap m_cachedSettings; // To store settings applied via applySettings or explicit setters
-    QVariantMap m_cachedViewportSize;
+    // Callbacks. These are the QObject instances passed to JS (via Phantom)
+    // and invoked from JS. Their `called` signal will be connected to logic
+    // that informs the IEngineBackend to trigger a sync dialog on its side.
+    Callback* m_genericCallback;
+    Callback* m_filePickerCallback;
+    Callback* m_jsConfirmCallback;
+    Callback* m_jsPromptCallback;
+    Callback* m_jsInterruptCallback;
+
+    CookieJar* m_cookieJar; // Local cookie jar, sync with backend
+    // NetworkAccessManager* m_networkAccessManager; // This will be absorbed into IEngineBackend
+    QObject* m_inspector; // Renamed from QWebInspector*
+    qreal m_dpi;
+
+    // Cached properties updated by IEngineBackend signals
+    QString m_cachedTitle;
+    QUrl m_cachedUrl;
+    QString m_cachedContent;
+    QString m_cachedPlainText;
+    QSize m_cachedViewportSize;
     QRect m_cachedClipRect;
     QPoint m_cachedScrollPosition;
-    QVariantMap m_cachedPaperSize;
+    QString m_cachedUserAgent;
     QVariantMap m_cachedCustomHeaders;
     qreal m_cachedZoomFactor;
-    QString m_cachedLibraryPath;
-    bool m_cachedNavigationLocked;
-    CookieJar* m_cookieJar; // Directly managed by WebPage
-    qreal m_dpi; // Still relevant for internal scaling logic if needed
+    QString m_cachedWindowName;
+    QString m_cachedOfflineStoragePath;
+    int m_cachedOfflineStorageQuota;
+    QString m_cachedLocalStoragePath;
+    int m_cachedLocalStorageQuota;
+    int m_cachedFramesCount;
+    QStringList m_cachedFramesName;
+    QString m_cachedFrameName;
+    QString m_cachedFocusedFrameName;
 
-    // List of owned child pages (QPointer for safety)
-    QList<QPointer<WebPage>> m_childPages;
-    bool m_ownsPages;
 
-    // For JS callbacks, these will likely be implemented differently with WebChannel/IPC
-    WebpageCallbacks* m_callbacks; // Retaining for now, but its implementation will change
+    QVariantMap m_paperSize; // Still stored locally for PDF rendering options
+    QString m_libraryPath; // Still stored locally for script injection paths
 
-    friend class Phantom; // Phantom creates WebPage instances and might manage their lifecycle.
-    // The following private members from original WebPage.h are removed or replaced:
-    // CustomPage* m_customWebPage; // Replaced by IEngineBackend
-    // NetworkAccessManager* m_networkAccessManager; // Replaced by IEngineBackend
-    // QWebFrame* m_mainFrame; // Replaced by IEngineBackend
-    // QWebFrame* m_currentFrame; // Replaced by IEngineBackend
-    // QWebInspector* m_inspector; // Replaced by IEngineBackend, or removed
-    // QPoint m_mousePos; // Mouse events go through sendEvent to backend
-    // bool m_shouldInterruptJs; // Handled by backend's interrupt method
-
-    // Private helper methods (might still be needed or become internal to backend)
-    // QImage renderImage(const RenderMode mode = Content); // Delegates to backend->render
-    // bool renderPdf(QPdfWriter& pdfWriter); // Delegates to backend->renderPdf
-    // void applySettings(const QVariantMap& defaultSettings); // Now a public method
-    // QString userAgent() const; // Now a public method/property
-    // void changeCurrentFrame(QWebFrame* const frame); // Replaced by switchToFrame methods
-    // QString filePicker(const QString& oldFile); // Replaced by handleFilePicker signal/method
-    // bool javaScriptConfirm(const QString& msg); // Replaced by handleJavaScriptConfirm
-    // bool javaScriptPrompt(const QString& msg, const QString& defaultValue, QString* result); // Replaced by
-    // handleJavaScriptPrompt void javascriptInterrupt(); // Replaced by handleJavaScriptInterrupt
+    // Private helper methods
+    qreal stringToPointSize(const QString& string) const;
+    qreal printMargin(const QVariantMap& map, const QString& key);
+    qreal getHeight(const QVariantMap& map, const QString& key) const;
+    QString header(int page, int numPages); // These will depend on a C++ callback model
+    QString footer(int page, int numPages); // These will depend on a C++ callback model
+    void _appendScriptElement(const QString& scriptUrl); // Helper for JS injection (delegates to backend)
+    // No longer CustomPage member, so defined here or made static/free func
+    // bool renderPdf(QPdfWriter& pdfWriter); // This logic moves to IEngineBackend or is part of a general image processing utility
 };
 
 #endif // WEBPAGE_H
