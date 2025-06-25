@@ -51,17 +51,18 @@
 #define HISTORY_FILENAME "phantom_repl_history"
 #define REGEXP_NON_COMPLETABLE_CHARS "[^\\w\\s\\.]"
 // JS for completions needs to interact with the _repl object on window, not internal C++ methods
-#define JS_RETURN_POSSIBLE_COMPLETIONS "JSON.stringify(REPL._getCompletions(%1, \"%2\"));" // REPL.js will have _getCompletions
-#define JS_EVAL_USER_INPUT                                                                  \
-    "try { "                                                                                \
-    "REPL._lastEval = eval(\"%1\");"                                                     \
-    "console.log(JSON.stringify(REPL._lastEval, REPL._expResStringifyReplacer, '    ')); " \
-    "} catch(e) { "                                                                         \
-    "if (e instanceof TypeError) { "                                                    \
-    "console.error(\"'%1' is a cyclic structure\"); "                               \
-    "} else { "                                                                         \
-    "console.error(e.message);"                                                     \
-    "}"                                                                                  \
+#define JS_RETURN_POSSIBLE_COMPLETIONS                                                                                 \
+    "JSON.stringify(REPL._getCompletions(%1, \"%2\"));" // REPL.js will have _getCompletions
+#define JS_EVAL_USER_INPUT                                                                                             \
+    "try { "                                                                                                           \
+    "REPL._lastEval = eval(\"%1\");"                                                                                   \
+    "console.log(JSON.stringify(REPL._lastEval, REPL._expResStringifyReplacer, '    ')); "                             \
+    "} catch(e) { "                                                                                                    \
+    "if (e instanceof TypeError) { "                                                                                   \
+    "console.error(\"'%1' is a cyclic structure\"); "                                                                  \
+    "} else { "                                                                                                        \
+    "console.error(e.message);"                                                                                        \
+    "}"                                                                                                                \
     "} "
 
 // Static singleton instance
@@ -69,16 +70,14 @@ static REPL* s_replInstance = nullptr; // Renamed to avoid confusion with the me
 
 bool REPL::instanceExists() { return s_replInstance != nullptr; }
 
-REPL* REPL::getInstance(WebPage* webpage, Phantom* parent)
-{
+REPL* REPL::getInstance(WebPage* webpage, Phantom* parent) {
     if (!s_replInstance && webpage && parent) {
         s_replInstance = new REPL(webpage, parent);
     }
     return s_replInstance;
 }
 
-REPL* REPL::getInstance()
-{
+REPL* REPL::getInstance() {
     // This overload should only be called when the singleton is guaranteed to exist.
     // Otherwise, it would return nullptr, potentially leading to crashes.
     return s_replInstance;
@@ -86,8 +85,7 @@ REPL* REPL::getInstance()
 
 QString REPL::_getClassName(QObject* obj) const { return QString::fromLatin1(obj->metaObject()->className()); }
 
-QStringList REPL::_enumerateCompletions(QObject* obj) const
-{
+QStringList REPL::_enumerateCompletions(QObject* obj) const {
     const QMetaObject* meta = obj->metaObject();
     QSet<QString> completions;
 
@@ -113,20 +111,15 @@ QStringList REPL::_enumerateCompletions(QObject* obj) const
 }
 
 // These are the actual slots exposed to JavaScript for _repl object
-QString REPL::getClassName(QObject* obj) const {
-    return _getClassName(obj);
-}
+QString REPL::getClassName(QObject* obj) const { return _getClassName(obj); }
 
-QStringList REPL::enumerateCompletions(QObject* obj) const {
-    return _enumerateCompletions(obj);
-}
+QStringList REPL::enumerateCompletions(QObject* obj) const { return _enumerateCompletions(obj); }
 
 REPL::REPL(WebPage* webpage, Phantom* parent)
     : QObject(parent)
     , m_looping(true)
     , m_webpage(webpage) // Store WebPage* directly
-    , m_parentPhantom(parent)
-{
+    , m_parentPhantom(parent) {
     m_historyFilepath = QString("%1/%2")
                             .arg(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation), HISTORY_FILENAME)
                             .toLocal8Bit();
@@ -149,13 +142,11 @@ REPL::REPL(WebPage* webpage, Phantom* parent)
         qWarning() << "REPL: Cannot expose _repl object. WebPage or its backend is not ready.";
     }
 
-
     // Start the REPL loop after the event loop has started
     QTimer::singleShot(0, this, &REPL::startLoop);
 }
 
-void REPL::offerCompletion(const char* buf, linenoiseCompletions* lc)
-{
+void REPL::offerCompletion(const char* buf, linenoiseCompletions* lc) {
     QString buffer(buf);
     QRegularExpression nonCompletableChars(REGEXP_NON_COMPLETABLE_CHARS);
 
@@ -168,9 +159,10 @@ void REPL::offerCompletion(const char* buf, linenoiseCompletions* lc)
 
     // Call evaluateJavaScript on the current WebPage (which delegates to IEngineBackend)
     // The JS_RETURN_POSSIBLE_COMPLETIONS string now calls REPL._getCompletions in JS
-    QStringList completions = REPL::getInstance()
-                                  ->m_webpage->evaluateJavaScript(QString(JS_RETURN_POSSIBLE_COMPLETIONS).arg(toInspect, toComplete))
-                                  .toStringList();
+    QStringList completions
+        = REPL::getInstance()
+              ->m_webpage->evaluateJavaScript(QString(JS_RETURN_POSSIBLE_COMPLETIONS).arg(toInspect, toComplete))
+              .toStringList();
 
     for (const QString& c : completions) {
         QString suggestion = (lastIndexOfDot > -1) ? QString("%1.%2").arg(toInspect, c) : c;
@@ -178,8 +170,7 @@ void REPL::offerCompletion(const char* buf, linenoiseCompletions* lc)
     }
 }
 
-void REPL::startLoop()
-{
+void REPL::startLoop() {
     char* userInput;
     linenoiseHistoryLoad(m_historyFilepath.toLocal8Bit().data()); // Use toLocal8Bit().data()
     while (m_looping && (userInput = linenoise(PROMPT)) != nullptr) {
@@ -199,8 +190,7 @@ void REPL::startLoop()
     }
 }
 
-void REPL::stopLoop(const int code)
-{
+void REPL::stopLoop(const int code) {
     Q_UNUSED(code);
     m_looping = false;
 }
