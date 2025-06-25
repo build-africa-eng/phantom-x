@@ -31,24 +31,22 @@ static QByteArray qVariantListToSignature(const QVariantList& args) {
     return QString("(%1)").arg(types.join(',')).toLatin1();
 }
 
-
 // Constructor: Launches the Node.js Playwright subprocess
 PlaywrightEngineBackend::PlaywrightEngineBackend(QObject* parent)
     : IEngineBackend(parent)
     , m_playwrightProcess(new QProcess(this))
     , m_nextMessageSize(0)
-    , m_navigationLocked(false)
-{
+    , m_navigationLocked(false) {
     qDebug() << "PlaywrightEngineBackend: Initializing...";
 
     // Connect QProcess signals
     connect(m_playwrightProcess, &QProcess::readyReadStandardOutput, this,
-            &PlaywrightEngineBackend::handleReadyReadStandardOutput);
+        &PlaywrightEngineBackend::handleReadyReadStandardOutput);
     connect(m_playwrightProcess, &QProcess::readyReadStandardError, this,
-            &PlaywrightEngineBackend::handleReadyReadStandardError);
+        &PlaywrightEngineBackend::handleReadyReadStandardError);
     connect(m_playwrightProcess, &QProcess::started, this, &PlaywrightEngineBackend::handleProcessStarted);
     connect(m_playwrightProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
-            &PlaywrightEngineBackend::handleProcessFinished);
+        &PlaywrightEngineBackend::handleProcessFinished);
     connect(m_playwrightProcess, &QProcess::errorOccurred, this, &PlaywrightEngineBackend::handleProcessErrorOccurred);
 
     // Path to your Node.js script that will run Playwright
@@ -90,8 +88,7 @@ PlaywrightEngineBackend::PlaywrightEngineBackend(QObject* parent)
     m_windowName = ""; // Not yet known
 }
 
-PlaywrightEngineBackend::~PlaywrightEngineBackend()
-{
+PlaywrightEngineBackend::~PlaywrightEngineBackend() {
     qDebug() << "PlaywrightEngineBackend: Shutting down...";
     if (m_playwrightProcess->state() != QProcess::NotRunning) {
         // Send a shutdown command to the Node.js process
@@ -107,8 +104,7 @@ PlaywrightEngineBackend::~PlaywrightEngineBackend()
 // --- IPC Communication Helpers ---
 
 // Send an asynchronous command to the Node.js process
-void PlaywrightEngineBackend::sendAsyncCommand(const QString& command, const QVariantMap& params)
-{
+void PlaywrightEngineBackend::sendAsyncCommand(const QString& command, const QVariantMap& params) {
     QJsonObject message;
     message["type"] = "command";
     message["command"] = command;
@@ -120,14 +116,14 @@ void PlaywrightEngineBackend::sendAsyncCommand(const QString& command, const QVa
     QByteArray jsonData = doc.toJson(QJsonDocument::Compact); // Compact for single line
     QByteArray messageWithLength = QByteArray::number(jsonData.size()) + "\n" + jsonData; // Prepend length and newline
 
-    // qDebug() << "PlaywrightEngineBackend: Sending async command:" << messageWithLength.left(200) << "..."; // Truncate for log readability
+    // qDebug() << "PlaywrightEngineBackend: Sending async command:" << messageWithLength.left(200) << "..."; //
+    // Truncate for log readability
     m_playwrightProcess->write(messageWithLength);
     m_playwrightProcess->waitForBytesWritten(); // Ensure data is sent
 }
 
 // Send a synchronous command and wait for a response
-QVariant PlaywrightEngineBackend::sendSyncCommand(const QString& command, const QVariantMap& params)
-{
+QVariant PlaywrightEngineBackend::sendSyncCommand(const QString& command, const QVariantMap& params) {
     qint64 commandId = QDateTime::currentMSecsSinceEpoch(); // Simple unique ID
 
     QJsonObject message;
@@ -153,7 +149,8 @@ QVariant PlaywrightEngineBackend::sendSyncCommand(const QString& command, const 
     while (m_pendingCommands.head().first != commandId || m_pendingCommands.head().second.isNull()) {
         // Use a timeout to prevent infinite blocking if the Node.js process hangs
         if (!m_commandWaitCondition.wait(locker.mutex(), 30000)) { // 30-second timeout
-            qWarning() << "PlaywrightEngineBackend: Timeout waiting for sync response for command:" << command << "ID:" << commandId;
+            qWarning() << "PlaywrightEngineBackend: Timeout waiting for sync response for command:" << command
+                       << "ID:" << commandId;
             // Optionally, handle timeout by returning an error variant or re-throwing
             return QVariant(); // Return empty QVariant on timeout
         }
@@ -179,15 +176,14 @@ void PlaywrightEngineBackend::sendSyncResponse(qint64 id, const QVariant& result
     m_playwrightProcess->waitForBytesWritten();
 }
 
-
 // Process incoming JSON messages from Node.js stdout
-void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
-{
+void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message) {
     QString type = message["type"].toString();
     QString command = message["command"].toString();
     qint64 messageId = message.value("id").toVariant().toLongLong(); // Get ID, if present
 
-    // qDebug() << "PlaywrightEngineBackend: Processing message - Type:" << type << "Command:" << command << "ID:" << messageId;
+    // qDebug() << "PlaywrightEngineBackend: Processing message - Type:" << type << "Command:" << command << "ID:" <<
+    // messageId;
 
     if (type == "response" || type == "sync_response") {
         qint64 id = message["id"].toVariant().toLongLong();
@@ -243,7 +239,7 @@ void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
             emit javaScriptConsoleMessageSent(eventData.value("message").toString());
         } else if (command == "javaScriptError") {
             emit javaScriptErrorSent(eventData.value("message").toString(), eventData.value("lineNumber").toInt(),
-                                     eventData.value("sourceID").toString(), eventData.value("stack").toString());
+                eventData.value("sourceID").toString(), eventData.value("stack").toString());
         } else if (command == "pageCreated") {
             // This event notifies us that a new browser page (e.g., from window.open) has been created.
             // The Playwright backend implicitly handles the new Page object.
@@ -253,7 +249,8 @@ void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
             // A more robust solution would involve passing a unique page ID from Node.js and
             // creating a *new* PlaywrightEngineBackend instance in C++ associated with that ID,
             // which then communicates through a shared IPC channel but targets commands to specific page IDs.
-            qWarning() << "PlaywrightEngineBackend: Received 'pageCreated' event. Full multi-page implementation pending.";
+            qWarning()
+                << "PlaywrightEngineBackend: Received 'pageCreated' event. Full multi-page implementation pending.";
             // If newPageBackend would be a new IEngineBackend instance for the new page:
             // emit pageCreated(new PlaywrightEngineBackend(this, "new_page_id_from_js")); // Example
         } else if (command == "initialized") {
@@ -269,8 +266,10 @@ void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
         } else if (command == "repaintRequested") {
             // Playwright repaint will typically mean a new screenshot is possible.
             // This event might carry dirty rect info, which would be in eventData.
-            if (eventData.contains("x") && eventData.contains("y") && eventData.contains("width") && eventData.contains("height")) {
-                emit repaintRequested(QRect(eventData["x"].toInt(), eventData["y"].toInt(), eventData["width"].toInt(), eventData["height"].toInt()));
+            if (eventData.contains("x") && eventData.contains("y") && eventData.contains("width")
+                && eventData.contains("height")) {
+                emit repaintRequested(QRect(eventData["x"].toInt(), eventData["y"].toInt(), eventData["width"].toInt(),
+                    eventData["height"].toInt()));
             } else {
                 // If no specific rect, assume full repaint
                 emit repaintRequested(QRect(0, 0, m_viewportSize.width(), m_viewportSize.height()));
@@ -308,14 +307,17 @@ void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
                 if (prop.isValid()) {
                     if (args.isEmpty()) { // It's a getter
                         result = prop.read(targetObject);
-                        qDebug() << "PlaywrightEngineBackend: Invoked Q_PROPERTY getter:" << objectName << "." << methodName << "-> Result:" << result;
+                        qDebug() << "PlaywrightEngineBackend: Invoked Q_PROPERTY getter:" << objectName << "."
+                                 << methodName << "-> Result:" << result;
                     } else if (args.size() == 1) { // It's a setter
                         success = prop.write(targetObject, args.first());
                         result = success; // Return true/false for setter success
-                        qDebug() << "PlaywrightEngineBackend: Invoked Q_PROPERTY setter:" << objectName << "." << methodName << "=" << args.first() << "(Success:" << success << ")";
+                        qDebug() << "PlaywrightEngineBackend: Invoked Q_PROPERTY setter:" << objectName << "."
+                                 << methodName << "=" << args.first() << "(Success:" << success << ")";
                     } else {
                         success = false;
-                        errorString = "Invalid number of arguments for property access (expected 0 for getter, 1 for setter).";
+                        errorString
+                            = "Invalid number of arguments for property access (expected 0 for getter, 1 for setter).";
                     }
                 } else {
                     // 2. Try as a Q_INVOKABLE method
@@ -325,81 +327,86 @@ void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
                     // We'll try to match by signature or invoke with QGenericArgument.
 
                     // Attempt 1: Look for exact signature (e.g., method(QString,int))
-                    QByteArray normalizedSignature = QMetaObject::normalizedSignature(QString("%1%2").arg(methodName).arg(qVariantListToSignature(args)).toLatin1().constData());
+                    QByteArray normalizedSignature = QMetaObject::normalizedSignature(
+                        QString("%1%2").arg(methodName).arg(qVariantListToSignature(args)).toLatin1().constData());
                     int methodIndex = meta->indexOfMethod(normalizedSignature);
 
                     if (methodIndex != -1) {
-                         // Found method by precise signature
-                         QMetaMethod method = meta->method(methodIndex);
-                         QList<QByteArray> parameterTypes = method.parameterTypes();
-                         if (parameterTypes.size() != args.size()) {
-                             success = false;
-                             errorString = QString("Method signature mismatch for '%1'.").arg(methodName);
-                         } else {
-                             // This is still tricky. QGenericArgument needs exact type.
-                             // QVariant::constData() is generally safe only for POD types or if the QVariant
-                             // holds a registered custom type.
-                             // For simplicity, we try with Q_ARG for up to 10 parameters, assuming basic conversions.
-                             QVariant returnVal;
-                             bool invoked = false;
-                             QGenericArgument genericArgs[10];
+                        // Found method by precise signature
+                        QMetaMethod method = meta->method(methodIndex);
+                        QList<QByteArray> parameterTypes = method.parameterTypes();
+                        if (parameterTypes.size() != args.size()) {
+                            success = false;
+                            errorString = QString("Method signature mismatch for '%1'.").arg(methodName);
+                        } else {
+                            // This is still tricky. QGenericArgument needs exact type.
+                            // QVariant::constData() is generally safe only for POD types or if the QVariant
+                            // holds a registered custom type.
+                            // For simplicity, we try with Q_ARG for up to 10 parameters, assuming basic conversions.
+                            QVariant returnVal;
+                            bool invoked = false;
+                            QGenericArgument genericArgs[10];
 
-                             for (int i = 0; i < args.size() && i < 10; ++i) {
-                                 // IMPORTANT: This casting is an *assumption* and can lead to crashes if types don't match.
-                                 // A robust solution needs a QVariant to target-type conversion layer.
-                                 // For common types (QString, int, bool, QVariantMap, QVariantList), QVariant handles it.
-                                 if (parameterTypes.at(i) == "QString") {
-                                     genericArgs[i] = Q_ARG(QString, args.at(i).toString());
-                                 } else if (parameterTypes.at(i) == "int") {
-                                     genericArgs[i] = Q_ARG(int, args.at(i).toInt());
-                                 } else if (parameterTypes.at(i) == "bool") {
-                                     genericArgs[i] = Q_ARG(bool, args.at(i).toBool());
-                                 } else if (parameterTypes.at(i) == "QVariantMap") {
-                                     genericArgs[i] = Q_ARG(QVariantMap, args.at(i).toMap());
-                                 } else if (parameterTypes.at(i) == "QVariantList") {
-                                     genericArgs[i] = Q_ARG(QVariantList, args.at(i).toList());
-                                 } else if (parameterTypes.at(i) == "QObject*") {
-                                     // Special handling for QObject*. This would involve looking up a registered QObject.
-                                     // For now, assume null or handle if a known QObject proxy is passed.
-                                     genericArgs[i] = Q_ARG(QObject*, args.at(i).value<QObject*>());
-                                 } else {
-                                     // Fallback for other types - may be unsafe
-                                     genericArgs[i] = QGenericArgument(args.at(i).typeName(), args.at(i).constData());
-                                 }
-                             }
+                            for (int i = 0; i < args.size() && i < 10; ++i) {
+                                // IMPORTANT: This casting is an *assumption* and can lead to crashes if types don't
+                                // match. A robust solution needs a QVariant to target-type conversion layer. For common
+                                // types (QString, int, bool, QVariantMap, QVariantList), QVariant handles it.
+                                if (parameterTypes.at(i) == "QString") {
+                                    genericArgs[i] = Q_ARG(QString, args.at(i).toString());
+                                } else if (parameterTypes.at(i) == "int") {
+                                    genericArgs[i] = Q_ARG(int, args.at(i).toInt());
+                                } else if (parameterTypes.at(i) == "bool") {
+                                    genericArgs[i] = Q_ARG(bool, args.at(i).toBool());
+                                } else if (parameterTypes.at(i) == "QVariantMap") {
+                                    genericArgs[i] = Q_ARG(QVariantMap, args.at(i).toMap());
+                                } else if (parameterTypes.at(i) == "QVariantList") {
+                                    genericArgs[i] = Q_ARG(QVariantList, args.at(i).toList());
+                                } else if (parameterTypes.at(i) == "QObject*") {
+                                    // Special handling for QObject*. This would involve looking up a registered
+                                    // QObject. For now, assume null or handle if a known QObject proxy is passed.
+                                    genericArgs[i] = Q_ARG(QObject*, args.at(i).value<QObject*>());
+                                } else {
+                                    // Fallback for other types - may be unsafe
+                                    genericArgs[i] = QGenericArgument(args.at(i).typeName(), args.at(i).constData());
+                                }
+                            }
 
-                             invoked = QMetaObject::invokeMethod(targetObject, methodName.toLatin1().constData(),
-                                                                 Qt::DirectConnection, // or Qt::BlockingQueuedConnection if cross-thread
-                                                                 Q_RETURN_ARG(QVariant, returnVal),
-                                                                 genericArgs[0], genericArgs[1], genericArgs[2], genericArgs[3],
-                                                                 genericArgs[4], genericArgs[5], genericArgs[6], genericArgs[7],
-                                                                 genericArgs[8], genericArgs[9]); // Max 10 arguments for Q_ARG overload
+                            invoked = QMetaObject::invokeMethod(targetObject, methodName.toLatin1().constData(),
+                                Qt::DirectConnection, // or Qt::BlockingQueuedConnection if cross-thread
+                                Q_RETURN_ARG(QVariant, returnVal), genericArgs[0], genericArgs[1], genericArgs[2],
+                                genericArgs[3], genericArgs[4], genericArgs[5], genericArgs[6], genericArgs[7],
+                                genericArgs[8], genericArgs[9]); // Max 10 arguments for Q_ARG overload
 
-                             result = returnVal;
-                             success = invoked;
-                             if (!invoked) {
-                                 errorString = QString("Failed to invoke method '%1' (invokeMethod returned false).").arg(methodName);
-                             }
-                         }
+                            result = returnVal;
+                            success = invoked;
+                            if (!invoked) {
+                                errorString = QString("Failed to invoke method '%1' (invokeMethod returned false).")
+                                                  .arg(methodName);
+                            }
+                        }
                     } else {
-                        // Attempt 2.1: Look for method that takes a single QVariantList (e.g., common for 'call' on Callback)
-                        normalizedSignature = QMetaObject::normalizedSignature(QString("%1(QVariantList)").arg(methodName).toLatin1().constData());
+                        // Attempt 2.1: Look for method that takes a single QVariantList (e.g., common for 'call' on
+                        // Callback)
+                        normalizedSignature = QMetaObject::normalizedSignature(
+                            QString("%1(QVariantList)").arg(methodName).toLatin1().constData());
                         methodIndex = meta->indexOfMethod(normalizedSignature);
                         if (methodIndex != -1 && args.size() == 1 && args.first().type() == QVariant::List) {
-                             QVariant returnVal;
-                             bool invoked = QMetaObject::invokeMethod(targetObject, methodName.toLatin1().constData(),
-                                                                      Qt::DirectConnection,
-                                                                      Q_RETURN_ARG(QVariant, returnVal),
-                                                                      Q_ARG(QVariantList, args.first().toList()));
-                             result = returnVal;
-                             success = invoked;
-                             if (!invoked) {
+                            QVariant returnVal;
+                            bool invoked = QMetaObject::invokeMethod(targetObject, methodName.toLatin1().constData(),
+                                Qt::DirectConnection, Q_RETURN_ARG(QVariant, returnVal),
+                                Q_ARG(QVariantList, args.first().toList()));
+                            result = returnVal;
+                            success = invoked;
+                            if (!invoked) {
                                 errorString = QString("Failed to invoke method '%1(QVariantList)'.").arg(methodName);
-                             }
+                            }
                         } else {
                             // 3. Method or property not found / no matching signature
                             success = false;
-                            errorString = QString("Method or property '%1' not found or signature mismatch on exposed object '%2'.").arg(methodName).arg(objectName);
+                            errorString = QString(
+                                "Method or property '%1' not found or signature mismatch on exposed object '%2'.")
+                                              .arg(methodName)
+                                              .arg(objectName);
                         }
                     }
                 }
@@ -412,7 +419,8 @@ void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
             errorString = QString("Unknown sync_command_to_cpp command: %1").arg(commandName);
         }
         // Send response back to the Node.js backend
-        sendSyncResponse(messageId, QVariantMap { { "success", success }, { "result", result }, { "error", errorString } });
+        sendSyncResponse(
+            messageId, QVariantMap { { "success", success }, { "result", result }, { "error", errorString } });
     } else { // Fallback for unhandled types
         qWarning() << "PlaywrightEngineBackend: Unhandled message type:" << type;
     }
@@ -420,8 +428,7 @@ void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
 
 // --- QProcess Signal Handlers ---
 
-void PlaywrightEngineBackend::handleReadyReadStandardOutput()
-{
+void PlaywrightEngineBackend::handleReadyReadStandardOutput() {
     m_outputBuffer.append(m_playwrightProcess->readAllStandardOutput());
 
     // Process messages from the buffer
@@ -474,30 +481,26 @@ void PlaywrightEngineBackend::handleReadyReadStandardOutput()
     }
 }
 
-void PlaywrightEngineBackend::handleReadyReadStandardError()
-{
+void PlaywrightEngineBackend::handleReadyReadStandardError() {
     QByteArray errorOutput = m_playwrightProcess->readAllStandardError();
     // Forward error output to console for debugging Node.js process
     Terminal::instance()->cerr("[Playwright-ERR]: " + QString::fromUtf8(errorOutput).trimmed());
 }
 
-void PlaywrightEngineBackend::handleProcessStarted()
-{
+void PlaywrightEngineBackend::handleProcessStarted() {
     qDebug() << "PlaywrightEngineBackend: Node.js process started successfully.";
     // Send initial handshake or setup command to Node.js backend
     sendAsyncCommand("init"); // Tell Node.js backend to initialize browser
 }
 
-void PlaywrightEngineBackend::handleProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
-{
+void PlaywrightEngineBackend::handleProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
     qWarning() << "PlaywrightEngineBackend: Node.js process finished with exit code" << exitCode << "and status"
                << (exitStatus == QProcess::NormalExit ? "Normal" : "Crash");
     // Emit a loadFinished(false) or similar to any pending pages
     // Also, potentially recreate the process if it's an unexpected crash
 }
 
-void PlaywrightEngineBackend::handleProcessErrorOccurred(QProcess::ProcessError error)
-{
+void PlaywrightEngineBackend::handleProcessErrorOccurred(QProcess::ProcessError error) {
     qCritical() << "PlaywrightEngineBackend: QProcess error occurred:" << error;
     // Handle specific errors (e.g., QProcess::FailedToStart)
 }
@@ -505,8 +508,7 @@ void PlaywrightEngineBackend::handleProcessErrorOccurred(QProcess::ProcessError 
 // --- IEngineBackend Method Implementations ---
 
 void PlaywrightEngineBackend::load(
-    const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body)
-{
+    const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body) {
     qDebug() << "PlaywrightEngineBackend: load called for URL:" << request.url().toDisplayString()
              << "Operation:" << operation << "Body size:" << body.size();
     QVariantMap params;
@@ -521,8 +523,7 @@ void PlaywrightEngineBackend::load(
     sendAsyncCommand("load", params);
 }
 
-void PlaywrightEngineBackend::setHtml(const QString& html, const QUrl& baseUrl)
-{
+void PlaywrightEngineBackend::setHtml(const QString& html, const QUrl& baseUrl) {
     qDebug() << "PlaywrightEngineBackend: setHtml called. Base URL:" << baseUrl.toDisplayString();
     m_currentHtml = html; // Cache locally
     m_currentUrl = baseUrl; // Update current URL
@@ -532,76 +533,64 @@ void PlaywrightEngineBackend::setHtml(const QString& html, const QUrl& baseUrl)
     sendAsyncCommand("setHtml", params);
 }
 
-void PlaywrightEngineBackend::reload()
-{
+void PlaywrightEngineBackend::reload() {
     qDebug() << "PlaywrightEngineBackend: reload called.";
     sendAsyncCommand("reload");
 }
 
-void PlaywrightEngineBackend::stop()
-{
+void PlaywrightEngineBackend::stop() {
     qDebug() << "PlaywrightEngineBackend: stop called.";
     sendAsyncCommand("stop");
 }
 
-bool PlaywrightEngineBackend::canGoBack() const
-{
+bool PlaywrightEngineBackend::canGoBack() const {
     qDebug() << "PlaywrightEngineBackend: canGoBack called.";
     return sendSyncCommand("canGoBack").toBool();
 }
 
-bool PlaywrightEngineBackend::goBack()
-{
+bool PlaywrightEngineBackend::goBack() {
     qDebug() << "PlaywrightEngineBackend: goBack called.";
     return sendSyncCommand("goBack").toBool();
 }
 
-bool PlaywrightEngineBackend::canGoForward() const
-{
+bool PlaywrightEngineBackend::canGoForward() const {
     qDebug() << "PlaywrightEngineBackend: canGoForward called.";
     return sendSyncCommand("canGoForward").toBool();
 }
 
-bool PlaywrightEngineBackend::goForward()
-{
+bool PlaywrightEngineBackend::goForward() {
     qDebug() << "PlaywrightEngineBackend: goForward called.";
     return sendSyncCommand("goForward").toBool();
 }
 
-bool PlaywrightEngineBackend::goToHistoryItem(int relativeIndex)
-{
+bool PlaywrightEngineBackend::goToHistoryItem(int relativeIndex) {
     qDebug() << "PlaywrightEngineBackend: goToHistoryItem called. Index:" << relativeIndex;
     QVariantMap params;
     params["relativeIndex"] = relativeIndex;
     return sendSyncCommand("goToHistoryItem", params).toBool();
 }
 
-QString PlaywrightEngineBackend::toHtml() const
-{
+QString PlaywrightEngineBackend::toHtml() const {
     qDebug() << "PlaywrightEngineBackend: toHtml called.";
     return sendSyncCommand("getHtml").toString(); // Fetch actual HTML
 }
 
-QString PlaywrightEngineBackend::title() const
-{
+QString PlaywrightEngineBackend::title() const {
     qDebug() << "PlaywrightEngineBackend: title called.";
     return sendSyncCommand("getTitle").toString(); // Fetch actual title
 }
 
-QUrl PlaywrightEngineBackend::url() const
-{
+QUrl PlaywrightEngineBackend::url() const {
     qDebug() << "PlaywrightEngineBackend: url called.";
     return QUrl(sendSyncCommand("getUrl").toString());
 }
 
-QString PlaywrightEngineBackend::toPlainText() const
-{
+QString PlaywrightEngineBackend::toPlainText() const {
     qDebug() << "PlaywrightEngineBackend: toPlainText called.";
     return sendSyncCommand("getPlainText").toString();
 }
 
-QVariant PlaywrightEngineBackend::evaluateJavaScript(const QString& script)
-{
+QVariant PlaywrightEngineBackend::evaluateJavaScript(const QString& script) {
     qDebug() << "PlaywrightEngineBackend: evaluateJavaScript called. Script length:" << script.length();
     QVariantMap params;
     params["script"] = script;
@@ -609,8 +598,7 @@ QVariant PlaywrightEngineBackend::evaluateJavaScript(const QString& script)
 }
 
 bool PlaywrightEngineBackend::injectJavaScriptFile(
-    const QString& filePath, const QString& encoding, const QString& libraryPath, bool inPhantomScope)
-{
+    const QString& filePath, const QString& encoding, const QString& libraryPath, bool inPhantomScope) {
     qDebug() << "PlaywrightEngineBackend: injectJavaScriptFile called. Path:" << filePath;
     QVariantMap params;
     params["filePath"] = filePath;
@@ -620,8 +608,7 @@ bool PlaywrightEngineBackend::injectJavaScriptFile(
     return sendSyncCommand("injectJsFile", params).toBool();
 }
 
-void PlaywrightEngineBackend::appendScriptElement(const QString& scriptUrl)
-{
+void PlaywrightEngineBackend::appendScriptElement(const QString& scriptUrl) {
     qDebug() << "PlaywrightEngineBackend: appendScriptElement called. URL:" << scriptUrl;
     QVariantMap params;
     params["scriptUrl"] = scriptUrl;
@@ -629,8 +616,7 @@ void PlaywrightEngineBackend::appendScriptElement(const QString& scriptUrl)
 }
 
 void PlaywrightEngineBackend::sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2,
-                                        const QString& mouseButton, const QVariant& modifierArg)
-{
+    const QString& mouseButton, const QVariant& modifierArg) {
     qDebug() << "PlaywrightEngineBackend: sendEvent called. Type:" << type;
     QVariantMap params;
     params["type"] = type;
@@ -641,8 +627,7 @@ void PlaywrightEngineBackend::sendEvent(const QString& type, const QVariant& arg
     sendAsyncCommand("sendEvent", params);
 }
 
-void PlaywrightEngineBackend::uploadFile(const QString& selector, const QStringList& fileNames)
-{
+void PlaywrightEngineBackend::uploadFile(const QString& selector, const QStringList& fileNames) {
     qDebug() << "PlaywrightEngineBackend: uploadFile called. Selector:" << selector;
     QVariantMap params;
     params["selector"] = selector;
@@ -650,8 +635,7 @@ void PlaywrightEngineBackend::uploadFile(const QString& selector, const QStringL
     sendAsyncCommand("uploadFile", params);
 }
 
-void PlaywrightEngineBackend::applySettings(const QVariantMap& settings)
-{
+void PlaywrightEngineBackend::applySettings(const QVariantMap& settings) {
     qDebug() << "PlaywrightEngineBackend: applySettings called. Settings count:" << settings.count();
     QVariantMap params;
     for (auto it = settings.constBegin(); it != settings.constEnd(); ++it) {
@@ -713,18 +697,17 @@ void PlaywrightEngineBackend::applySettings(const QVariantMap& settings)
         m_cachedLocalStorageQuota = settings[PAGE_SETTINGS_LOCAL_STORAGE_QUOTA].toInt();
 }
 
-QString PlaywrightEngineBackend::userAgent() const
-{
+QString PlaywrightEngineBackend::userAgent() const {
     qDebug() << "PlaywrightEngineBackend: userAgent called.";
     // The cached value should be accurate after applySettings, but if not, fetch it.
-    if (m_userAgent.isEmpty() || m_userAgent == "PhantomJS/3.0.0 (Custom Playwright Backend)") { // Check if default, then query
+    if (m_userAgent.isEmpty()
+        || m_userAgent == "PhantomJS/3.0.0 (Custom Playwright Backend)") { // Check if default, then query
         return sendSyncCommand("getUserAgent").toString();
     }
     return m_userAgent;
 }
 
-void PlaywrightEngineBackend::setUserAgent(const QString& ua)
-{
+void PlaywrightEngineBackend::setUserAgent(const QString& ua) {
     qDebug() << "PlaywrightEngineBackend: setUserAgent called. UA:" << ua;
     m_userAgent = ua;
     QVariantMap params;
@@ -732,8 +715,7 @@ void PlaywrightEngineBackend::setUserAgent(const QString& ua)
     sendAsyncCommand("setUserAgent", params);
 }
 
-QSize PlaywrightEngineBackend::viewportSize() const
-{
+QSize PlaywrightEngineBackend::viewportSize() const {
     qDebug() << "PlaywrightEngineBackend: viewportSize called.";
     QVariantMap sizeMap = sendSyncCommand("getViewportSize").toMap();
     if (sizeMap.contains("width") && sizeMap.contains("height")) {
@@ -742,8 +724,7 @@ QSize PlaywrightEngineBackend::viewportSize() const
     return m_viewportSize; // Fallback to cached if backend doesn't respond
 }
 
-void PlaywrightEngineBackend::setViewportSize(const QSize& size)
-{
+void PlaywrightEngineBackend::setViewportSize(const QSize& size) {
     qDebug() << "PlaywrightEngineBackend: setViewportSize called. Size:" << size;
     m_viewportSize = size;
     QVariantMap params;
@@ -752,8 +733,7 @@ void PlaywrightEngineBackend::setViewportSize(const QSize& size)
     sendAsyncCommand("setViewportSize", params);
 }
 
-QRect PlaywrightEngineBackend::clipRect() const
-{
+QRect PlaywrightEngineBackend::clipRect() const {
     qDebug() << "PlaywrightEngineBackend: clipRect called.";
     // Playwright doesn't store a persistent clipRect on the page. It's a rendering option.
     // So, this will always return the last set value or a default.
@@ -765,8 +745,7 @@ QRect PlaywrightEngineBackend::clipRect() const
     return m_clipRect; // Return cached value
 }
 
-void PlaywrightEngineBackend::setClipRect(const QRect& rect)
-{
+void PlaywrightEngineBackend::setClipRect(const QRect& rect) {
     qDebug() << "PlaywrightEngineBackend: setClipRect called. Rect:" << rect;
     m_clipRect = rect;
     QVariantMap params;
@@ -777,8 +756,7 @@ void PlaywrightEngineBackend::setClipRect(const QRect& rect)
     sendAsyncCommand("setClipRect", params); // This is a stub command in Playwright backend
 }
 
-QPoint PlaywrightEngineBackend::scrollPosition() const
-{
+QPoint PlaywrightEngineBackend::scrollPosition() const {
     qDebug() << "PlaywrightEngineBackend: scrollPosition called.";
     QVariantMap posMap = sendSyncCommand("getScrollPosition").toMap();
     if (posMap.contains("x") && posMap.contains("y")) {
@@ -787,8 +765,7 @@ QPoint PlaywrightEngineBackend::scrollPosition() const
     return m_scrollPosition;
 }
 
-void PlaywrightEngineBackend::setScrollPosition(const QPoint& pos)
-{
+void PlaywrightEngineBackend::setScrollPosition(const QPoint& pos) {
     qDebug() << "PlaywrightEngineBackend: setScrollPosition called. Pos:" << pos;
     m_scrollPosition = pos;
     QVariantMap params;
@@ -797,8 +774,7 @@ void PlaywrightEngineBackend::setScrollPosition(const QPoint& pos)
     sendAsyncCommand("setScrollPosition", params);
 }
 
-void PlaywrightEngineBackend::setNavigationLocked(bool lock)
-{
+void PlaywrightEngineBackend::setNavigationLocked(bool lock) {
     qDebug() << "PlaywrightEngineBackend: setNavigationLocked called. Lock:" << lock;
     m_navigationLocked = lock;
     QVariantMap params;
@@ -806,22 +782,19 @@ void PlaywrightEngineBackend::setNavigationLocked(bool lock)
     sendAsyncCommand("setNavigationLocked", params);
 }
 
-bool PlaywrightEngineBackend::navigationLocked() const
-{
+bool PlaywrightEngineBackend::navigationLocked() const {
     qDebug() << "PlaywrightEngineBackend: navigationLocked called.";
     // This value is maintained locally based on the last setNavigationLocked call
     return m_navigationLocked;
 }
 
-QVariantMap PlaywrightEngineBackend::customHeaders() const
-{
+QVariantMap PlaywrightEngineBackend::customHeaders() const {
     qDebug() << "PlaywrightEngineBackend: customHeaders called.";
     // This value is maintained locally based on the last setCustomHeaders call
     return m_customHeaders;
 }
 
-void PlaywrightEngineBackend::setCustomHeaders(const QVariantMap& headers)
-{
+void PlaywrightEngineBackend::setCustomHeaders(const QVariantMap& headers) {
     qDebug() << "PlaywrightEngineBackend: setCustomHeaders called. Headers count:" << headers.count();
     m_customHeaders = headers;
     QVariantMap params;
@@ -829,15 +802,13 @@ void PlaywrightEngineBackend::setCustomHeaders(const QVariantMap& headers)
     sendAsyncCommand("setCustomHeaders", params);
 }
 
-qreal PlaywrightEngineBackend::zoomFactor() const
-{
+qreal PlaywrightEngineBackend::zoomFactor() const {
     qDebug() << "PlaywrightEngineBackend: zoomFactor called.";
     // This value is maintained locally based on the last setZoomFactor call
     return m_zoomFactor;
 }
 
-void PlaywrightEngineBackend::setZoomFactor(qreal zoom)
-{
+void PlaywrightEngineBackend::setZoomFactor(qreal zoom) {
     qDebug() << "PlaywrightEngineBackend: setZoomFactor called. Zoom:" << zoom;
     m_zoomFactor = zoom;
     QVariantMap params;
@@ -845,51 +816,47 @@ void PlaywrightEngineBackend::setZoomFactor(qreal zoom)
     sendAsyncCommand("setZoomFactor", params);
 }
 
-QString PlaywrightEngineBackend::windowName() const
-{
+QString PlaywrightEngineBackend::windowName() const {
     qDebug() << "PlaywrightEngineBackend: windowName called.";
     // This might require a synchronous call to Playwright to get the window.name property
     // if not updated via events. For now, we fetch it live.
     return sendSyncCommand("getWindowName").toString();
 }
 
-QString PlaywrightEngineBackend::offlineStoragePath() const
-{
+QString PlaywrightEngineBackend::offlineStoragePath() const {
     qDebug() << "PlaywrightEngineBackend: offlineStoragePath called.";
     return sendSyncCommand("getOfflineStoragePath").toString();
 }
 
-int PlaywrightEngineBackend::offlineStorageQuota() const
-{
+int PlaywrightEngineBackend::offlineStorageQuota() const {
     qDebug() << "PlaywrightEngineBackend: offlineStorageQuota called.";
     return sendSyncCommand("getOfflineStorageQuota").toInt();
 }
 
-QString PlaywrightEngineBackend::localStoragePath() const
-{
+QString PlaywrightEngineBackend::localStoragePath() const {
     qDebug() << "PlaywrightEngineBackend: localStoragePath called.";
     return sendSyncCommand("getLocalStoragePath").toString();
 }
 
-int PlaywrightEngineBackend::localStorageQuota() const
-{
+int PlaywrightEngineBackend::localStorageQuota() const {
     qDebug() << "PlaywrightEngineBackend: localStorageQuota called.";
     return sendSyncCommand("getLocalStorageQuota").toInt();
 }
 
-QByteArray PlaywrightEngineBackend::renderImage(const QRect& clipRect, bool onlyViewport, const QPoint& scrollPosition)
-{
-    qDebug() << "PlaywrightEngineBackend: renderImage called. ClipRect:" << clipRect << "OnlyViewport:" << onlyViewport << "ScrollPos:" << scrollPosition;
+QByteArray PlaywrightEngineBackend::renderImage(
+    const QRect& clipRect, bool onlyViewport, const QPoint& scrollPosition) {
+    qDebug() << "PlaywrightEngineBackend: renderImage called. ClipRect:" << clipRect << "OnlyViewport:" << onlyViewport
+             << "ScrollPos:" << scrollPosition;
     QVariantMap params;
     if (!clipRect.isNull() && (clipRect.width() > 0 || clipRect.height() > 0)) {
-        params["clipRect"] = QVariantMap{{"x", clipRect.x()}, {"y", clipRect.y()}, {"width", clipRect.width()},
-                                        {"height", clipRect.height()}};
+        params["clipRect"] = QVariantMap { { "x", clipRect.x() }, { "y", clipRect.y() }, { "width", clipRect.width() },
+            { "height", clipRect.height() } };
     } else {
         params["clipRect"] = QVariantMap(); // Empty map if no valid clipRect
     }
 
     params["onlyViewport"] = onlyViewport;
-    params["scrollPosition"] = QVariantMap{{"x", scrollPosition.x()}, {"y", scrollPosition.y()}};
+    params["scrollPosition"] = QVariantMap { { "x", scrollPosition.x() }, { "y", scrollPosition.y() } };
 
     // The Node.js backend should return base64 encoded image data
     QVariant result = sendSyncCommand("renderImage", params);
@@ -900,14 +867,13 @@ QByteArray PlaywrightEngineBackend::renderImage(const QRect& clipRect, bool only
     return QByteArray(); // Return empty if failed
 }
 
-QByteArray PlaywrightEngineBackend::renderPdf(const QVariantMap& paperSize, const QRect& clipRect)
-{
+QByteArray PlaywrightEngineBackend::renderPdf(const QVariantMap& paperSize, const QRect& clipRect) {
     qDebug() << "PlaywrightEngineBackend: renderPdf called. PaperSize:" << paperSize << "ClipRect:" << clipRect;
     QVariantMap params;
     params["paperSize"] = paperSize;
     if (!clipRect.isNull() && (clipRect.width() > 0 || clipRect.height() > 0)) {
-        params["clipRect"] = QVariantMap{{"x", clipRect.x()}, {"y", clipRect.y()}, {"width", clipRect.width()},
-                                        {"height", clipRect.height()}};
+        params["clipRect"] = QVariantMap { { "x", clipRect.x() }, { "y", clipRect.y() }, { "width", clipRect.width() },
+            { "height", clipRect.height() } };
     } else {
         params["clipRect"] = QVariantMap(); // Empty map if no valid clipRect
     }
@@ -921,9 +887,7 @@ QByteArray PlaywrightEngineBackend::renderPdf(const QVariantMap& paperSize, cons
     return QByteArray(); // Return empty if failed
 }
 
-
-void PlaywrightEngineBackend::setCookieJar(CookieJar* cookieJar)
-{
+void PlaywrightEngineBackend::setCookieJar(CookieJar* cookieJar) {
     qDebug() << "PlaywrightEngineBackend: setCookieJar called.";
     // This method is primarily to inform the backend about the cookie jar
     // The Playwright backend will need to read cookies from this jar and synchronize.
@@ -933,44 +897,38 @@ void PlaywrightEngineBackend::setCookieJar(CookieJar* cookieJar)
     }
 }
 
-QVariantList PlaywrightEngineBackend::cookies() const
-{
+QVariantList PlaywrightEngineBackend::cookies() const {
     qDebug() << "PlaywrightEngineBackend: cookies called.";
     return sendSyncCommand("getCookies").toList();
 }
 
-bool PlaywrightEngineBackend::setCookies(const QVariantList& cookies)
-{
+bool PlaywrightEngineBackend::setCookies(const QVariantList& cookies) {
     qDebug() << "PlaywrightEngineBackend: setCookies called.";
     QVariantMap params;
     params["cookies"] = cookies;
     return sendSyncCommand("setCookies", params).toBool();
 }
 
-bool PlaywrightEngineBackend::addCookie(const QVariantMap& cookie)
-{
+bool PlaywrightEngineBackend::addCookie(const QVariantMap& cookie) {
     qDebug() << "PlaywrightEngineBackend: addCookie called.";
     QVariantMap params;
     params["cookie"] = cookie;
     return sendSyncCommand("addCookie", params).toBool();
 }
 
-bool PlaywrightEngineBackend::deleteCookie(const QString& cookieName)
-{
+bool PlaywrightEngineBackend::deleteCookie(const QString& cookieName) {
     qDebug() << "PlaywrightEngineBackend: deleteCookie called.";
     QVariantMap params;
     params["cookieName"] = cookieName;
     return sendSyncCommand("deleteCookie", params).toBool();
 }
 
-bool PlaywrightEngineBackend::clearCookies()
-{
+bool PlaywrightEngineBackend::clearCookies() {
     qDebug() << "PlaywrightEngineBackend: clearCookies called.";
     return sendSyncCommand("clearCookies").toBool();
 }
 
-void PlaywrightEngineBackend::setNetworkProxy(const QNetworkProxy& proxy)
-{
+void PlaywrightEngineBackend::setNetworkProxy(const QNetworkProxy& proxy) {
     qDebug() << "PlaywrightEngineBackend: setNetworkProxy called. Host:" << proxy.hostName();
     QVariantMap params;
     params["host"] = proxy.hostName();
@@ -983,145 +941,124 @@ void PlaywrightEngineBackend::setNetworkProxy(const QNetworkProxy& proxy)
     sendAsyncCommand("setNetworkProxy", params);
 }
 
-void PlaywrightEngineBackend::clearMemoryCache()
-{
+void PlaywrightEngineBackend::clearMemoryCache() {
     qDebug() << "PlaywrightEngineBackend: clearMemoryCache called.";
     sendAsyncCommand("clearMemoryCache");
 }
 
-void PlaywrightEngineBackend::setIgnoreSslErrors(bool ignore)
-{
+void PlaywrightEngineBackend::setIgnoreSslErrors(bool ignore) {
     qDebug() << "PlaywrightEngineBackend: setIgnoreSslErrors called. Ignore:" << ignore;
     QVariantMap params;
     params["ignore"] = ignore;
     sendAsyncCommand("setIgnoreSslErrors", params);
 }
 
-void PlaywrightEngineBackend::setSslProtocol(const QString& protocolName)
-{
+void PlaywrightEngineBackend::setSslProtocol(const QString& protocolName) {
     qDebug() << "PlaywrightEngineBackend: setSslProtocol called. Protocol:" << protocolName;
     QVariantMap params;
     params["protocolName"] = protocolName;
     sendAsyncCommand("setSslProtocol", params);
 }
 
-void PlaywrightEngineBackend::setSslCiphers(const QString& ciphers)
-{
+void PlaywrightEngineBackend::setSslCiphers(const QString& ciphers) {
     qDebug() << "PlaywrightEngineBackend: setSslCiphers called. Ciphers:" << ciphers;
     QVariantMap params;
     params["ciphers"] = ciphers;
     sendAsyncCommand("setSslCiphers", params);
 }
 
-void PlaywrightEngineBackend::setSslCertificatesPath(const QString& path)
-{
+void PlaywrightEngineBackend::setSslCertificatesPath(const QString& path) {
     qDebug() << "PlaywrightEngineBackend: setSslCertificatesPath called. Path:" << path;
     QVariantMap params;
     params["path"] = path;
     sendAsyncCommand("setSslCertificatesPath", params);
 }
 
-void PlaywrightEngineBackend::setSslClientCertificateFile(const QString& path)
-{
+void PlaywrightEngineBackend::setSslClientCertificateFile(const QString& path) {
     qDebug() << "PlaywrightEngineBackend: setSslClientCertificateFile called. Path:" << path;
     QVariantMap params;
     params["path"] = path;
     sendAsyncCommand("setSslClientCertificateFile", params);
 }
 
-void PlaywrightEngineBackend::setSslClientKeyFile(const QString& path)
-{
+void PlaywrightEngineBackend::setSslClientKeyFile(const QString& path) {
     qDebug() << "PlaywrightEngineBackend: setSslClientKeyFile called. Path:" << path;
     QVariantMap params;
     params["path"] = path;
     sendAsyncCommand("setSslClientKeyFile", params);
 }
 
-void PlaywrightEngineBackend::setSslClientKeyPassphrase(const QByteArray& passphrase)
-{
-    qDebug() << "PlaywrightEngineBackend: setSslClientKeyPassphrase called. Passphrase length:"
-             << passphrase.length();
+void PlaywrightEngineBackend::setSslClientKeyPassphrase(const QByteArray& passphrase) {
+    qDebug() << "PlaywrightEngineBackend: setSslClientKeyPassphrase called. Passphrase length:" << passphrase.length();
     QVariantMap params;
     params["passphrase"] = QString::fromUtf8(passphrase.toBase64());
     sendAsyncCommand("setSslClientKeyPassphrase", params);
 }
 
-void PlaywrightEngineBackend::setResourceTimeout(int timeoutMs)
-{
+void PlaywrightEngineBackend::setResourceTimeout(int timeoutMs) {
     qDebug() << "PlaywrightEngineBackend: setResourceTimeout called. Timeout:" << timeoutMs;
     QVariantMap params;
     params["timeoutMs"] = timeoutMs;
     sendAsyncCommand("setResourceTimeout", params);
 }
 
-void PlaywrightEngineBackend::setMaxAuthAttempts(int attempts)
-{
+void PlaywrightEngineBackend::setMaxAuthAttempts(int attempts) {
     qDebug() << "PlaywrightEngineBackend: setMaxAuthAttempts called. Attempts:" << attempts;
     QVariantMap params;
     params["attempts"] = attempts;
     sendAsyncCommand("setMaxAuthAttempts", params);
 }
 
-int PlaywrightEngineBackend::framesCount() const
-{
+int PlaywrightEngineBackend::framesCount() const {
     qDebug() << "PlaywrightEngineBackend: framesCount called.";
     return sendSyncCommand("getFramesCount").toInt();
 }
 
-QStringList PlaywrightEngineBackend::framesName() const
-{
+QStringList PlaywrightEngineBackend::framesName() const {
     qDebug() << "PlaywrightEngineBackend: framesName called.";
     return sendSyncCommand("getFramesName").toStringList();
 }
 
-QString PlaywrightEngineBackend::frameName() const
-{
+QString PlaywrightEngineBackend::frameName() const {
     qDebug() << "PlaywrightEngineBackend: frameName called.";
     return sendSyncCommand("getFrameName").toString();
 }
 
-QString PlaywrightEngineBackend::focusedFrameName() const
-{
+QString PlaywrightEngineBackend::focusedFrameName() const {
     qDebug() << "PlaywrightEngineBackend: focusedFrameName called.";
     return sendSyncCommand("getFocusedFrameName").toString();
 }
 
-bool PlaywrightEngineBackend::switchToFrame(const QString& frameName)
-{
+bool PlaywrightEngineBackend::switchToFrame(const QString& frameName) {
     qDebug() << "PlaywrightEngineBackend: switchToFrame by name called. Name:" << frameName;
     QVariantMap params;
     params["name"] = frameName;
     return sendSyncCommand("switchToFrameByName", params).toBool();
 }
 
-bool PlaywrightEngineBackend::switchToFrame(int framePosition)
-{
+bool PlaywrightEngineBackend::switchToFrame(int framePosition) {
     qDebug() << "PlaywrightEngineBackend: switchToFrame by position called. Position:" << framePosition;
     QVariantMap params;
     params["position"] = framePosition;
     return sendSyncCommand("switchToFrameByPosition", params).toBool();
 }
 
-void PlaywrightEngineBackend::switchToMainFrame()
-{
+void PlaywrightEngineBackend::switchToMainFrame() {
     qDebug() << "PlaywrightEngineBackend: switchToMainFrame called.";
     sendAsyncCommand("switchToMainFrame");
 }
 
-bool PlaywrightEngineBackend::switchToParentFrame()
-{
+bool PlaywrightEngineBackend::switchToParentFrame() {
     qDebug() << "PlaywrightEngineBackend: switchToParentFrame called.";
     return sendSyncCommand("switchToParentFrame").toBool();
 }
 
-void PlaywrightEngineBackend::switchToFocusedFrame()
-{
+void PlaywrightEngineBackend::switchToFocusedFrame() {
     qDebug() << "PlaywrightEngineBackend: switchToFocusedFrame called.";
     sendAsyncCommand("switchToFocusedFrame");
 }
 
-void PlaywrightEngineBackend::exposeQObject(const QString& name, QObject* object)
-{
+void PlaywrightEngineBackend::exposeQObject(const QString& name, QObject* object) {
     qDebug() << "PlaywrightEngineBackend: exposeQObject called. Name:" << name << "Object:" << object->objectName();
 
     QVariantList invokableMethodNames;
@@ -1130,12 +1067,13 @@ void PlaywrightEngineBackend::exposeQObject(const QString& name, QObject* object
         QMetaMethod method = meta->method(i);
         // Only expose invokable methods that are not signals or slots (handled separately)
         // PhantomJS exposes Q_INVOKABLE methods and some slots (e.g. debugExit)
-        if ((method.methodType() == QMetaMethod::Method || method.methodType() == QMetaMethod::Slot) && method.accessSpecifier() == QMetaMethod::Public) {
+        if ((method.methodType() == QMetaMethod::Method || method.methodType() == QMetaMethod::Slot)
+            && method.accessSpecifier() == QMetaMethod::Public) {
             QString methodName = QString::fromLatin1(method.name()); // Get method name without arguments
             // Exclude signals, properties' read/write methods if you don't want them as direct methods
             // Also exclude internal methods starting with '_'
             if (method.methodType() != QMetaMethod::Signal && !methodName.startsWith('_')) {
-                 invokableMethodNames.append(methodName);
+                invokableMethodNames.append(methodName);
             }
         }
     }
@@ -1162,16 +1100,14 @@ void PlaywrightEngineBackend::exposeQObject(const QString& name, QObject* object
     sendAsyncCommand("exposeObject", params);
 }
 
-void PlaywrightEngineBackend::clickElement(const QString& selector)
-{
+void PlaywrightEngineBackend::clickElement(const QString& selector) {
     qDebug() << "PlaywrightEngineBackend: clickElement called. Selector:" << selector;
     QVariantMap params;
     params["selector"] = selector;
     sendAsyncCommand("clickElement", params);
 }
 
-int PlaywrightEngineBackend::showInspector(int remotePort)
-{
+int PlaywrightEngineBackend::showInspector(int remotePort) {
     qDebug() << "PlaywrightEngineBackend: showInspector called. Port:" << remotePort;
     QVariantMap params;
     params["remotePort"] = remotePort;
