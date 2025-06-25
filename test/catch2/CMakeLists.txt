@@ -1,0 +1,5 @@
+add_executable(catch_tests test_main.cpp)
+target_link_libraries(catch_tests PRIVATE Catch2::Catch2WithMain)
+include(CTest)
+include(Catch)
+catch_discover_tests(catch_tests)
