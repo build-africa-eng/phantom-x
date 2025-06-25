@@ -43,13 +43,12 @@
 // #include "qcommandline/qcommandline.h" // REMOVED THIS INCLUDE FROM HERE.
 
 #include "terminal.h" // For setDebugMode etc.
-#include "utils.h"    // For potential utility functions if Config needs them
+#include "utils.h" // For potential utility functions if Config needs them
 
 // Forward declarations if any needed
 
 // Global configuration management class
-class Config : public QObject
-{
+class Config : public QObject {
     Q_OBJECT
 
 public:
@@ -67,21 +66,30 @@ public:
     Q_PROPERTY(bool ignoreSslErrors READ ignoreSslErrors WRITE setIgnoreSslErrors NOTIFY ignoreSslErrorsChanged)
     Q_PROPERTY(QString sslProtocol READ sslProtocol WRITE setSslProtocol NOTIFY sslProtocolChanged)
     Q_PROPERTY(QString sslCiphers READ sslCiphers WRITE setSslCiphers NOTIFY sslCiphersChanged)
-    Q_PROPERTY(QString sslCertificatesPath READ sslCertificatesPath WRITE setSslCertificatesPath NOTIFY sslCertificatesPathChanged)
-    Q_PROPERTY(QString sslClientCertificateFile READ sslClientCertificateFile WRITE setSslClientCertificateFile NOTIFY sslClientCertificateFileChanged)
+    Q_PROPERTY(QString sslCertificatesPath READ sslCertificatesPath WRITE setSslCertificatesPath NOTIFY
+            sslCertificatesPathChanged)
+    Q_PROPERTY(QString sslClientCertificateFile READ sslClientCertificateFile WRITE setSslClientCertificateFile NOTIFY
+            sslClientCertificateFileChanged)
     Q_PROPERTY(QString sslClientKeyFile READ sslClientKeyFile WRITE setSslClientKeyFile NOTIFY sslClientKeyFileChanged)
-    Q_PROPERTY(QByteArray sslClientKeyPassphrase READ sslClientKeyPassphrase WRITE setSslClientKeyPassphrase NOTIFY sslClientKeyPassphraseChanged)
+    Q_PROPERTY(QByteArray sslClientKeyPassphrase READ sslClientKeyPassphrase WRITE setSslClientKeyPassphrase NOTIFY
+            sslClientKeyPassphraseChanged)
     Q_PROPERTY(int resourceTimeout READ resourceTimeout WRITE setResourceTimeout NOTIFY resourceTimeoutChanged)
     Q_PROPERTY(int maxAuthAttempts READ maxAuthAttempts WRITE setMaxAuthAttempts NOTIFY maxAuthAttemptsChanged)
     Q_PROPERTY(QString outputEncoding READ outputEncoding WRITE setOutputEncoding NOTIFY outputEncodingChanged)
     Q_PROPERTY(bool autoLoadImages READ autoLoadImages WRITE setAutoLoadImages NOTIFY autoLoadImagesChanged)
     Q_PROPERTY(bool javascriptEnabled READ javascriptEnabled WRITE setJavascriptEnabled NOTIFY javascriptEnabledChanged)
-    Q_PROPERTY(bool webSecurityEnabled READ webSecurityEnabled WRITE setWebSecurityEnabled NOTIFY webSecurityEnabledChanged)
-    Q_PROPERTY(bool localToRemoteUrlAccessEnabled READ localToRemoteUrlAccessEnabled WRITE setLocalToRemoteUrlAccessEnabled NOTIFY localToRemoteUrlAccessEnabledChanged)
-    Q_PROPERTY(bool offlineStorageEnabled READ offlineStorageEnabled WRITE setOfflineStorageEnabled NOTIFY offlineStorageEnabledChanged)
-    Q_PROPERTY(QString offlineStoragePath READ offlineStoragePath WRITE setOfflineStoragePath NOTIFY offlineStoragePathChanged)
-    Q_PROPERTY(int offlineStorageQuota READ offlineStorageQuota WRITE setOfflineStorageQuota NOTIFY offlineStorageQuotaChanged)
-    Q_PROPERTY(bool localStorageEnabled READ localStorageEnabled WRITE setLocalStorageEnabled NOTIFY localStorageEnabledChanged)
+    Q_PROPERTY(
+        bool webSecurityEnabled READ webSecurityEnabled WRITE setWebSecurityEnabled NOTIFY webSecurityEnabledChanged)
+    Q_PROPERTY(bool localToRemoteUrlAccessEnabled READ localToRemoteUrlAccessEnabled WRITE
+            setLocalToRemoteUrlAccessEnabled NOTIFY localToRemoteUrlAccessEnabledChanged)
+    Q_PROPERTY(bool offlineStorageEnabled READ offlineStorageEnabled WRITE setOfflineStorageEnabled NOTIFY
+            offlineStorageEnabledChanged)
+    Q_PROPERTY(
+        QString offlineStoragePath READ offlineStoragePath WRITE setOfflineStoragePath NOTIFY offlineStoragePathChanged)
+    Q_PROPERTY(
+        int offlineStorageQuota READ offlineStorageQuota WRITE setOfflineStorageQuota NOTIFY offlineStorageQuotaChanged)
+    Q_PROPERTY(bool localStorageEnabled READ localStorageEnabled WRITE setLocalStorageEnabled NOTIFY
+            localStorageEnabledChanged)
     Q_PROPERTY(QString localStoragePath READ localStoragePath WRITE setLocalStoragePath NOTIFY localStoragePathChanged)
     Q_PROPERTY(int localStorageQuota READ localStorageQuota WRITE setLocalStorageQuota NOTIFY localStorageQuotaChanged)
     Q_PROPERTY(bool printFooter READ printFooter WRITE setPrintFooter NOTIFY printFooterChanged)
@@ -89,8 +97,10 @@ public:
     Q_PROPERTY(QString scriptEncoding READ scriptEncoding WRITE setScriptEncoding NOTIFY scriptEncodingChanged)
     Q_PROPERTY(QString scriptLanguage READ scriptLanguage WRITE setScriptLanguage NOTIFY scriptLanguageChanged)
     Q_PROPERTY(bool webGLEnabled READ webGLEnabled WRITE setWebGLEnabled NOTIFY webGLEnabledChanged)
-    Q_PROPERTY(bool javascriptCanOpenWindows READ javascriptCanOpenWindows WRITE setJavascriptCanOpenWindows NOTIFY javascriptCanOpenWindowsChanged)
-    Q_PROPERTY(bool javascriptCanCloseWindows READ javascriptCanCloseWindows WRITE setJavascriptCanCloseWindows NOTIFY javascriptCanCloseWindowsChanged)
+    Q_PROPERTY(bool javascriptCanOpenWindows READ javascriptCanOpenWindows WRITE setJavascriptCanOpenWindows NOTIFY
+            javascriptCanOpenWindowsChanged)
+    Q_PROPERTY(bool javascriptCanCloseWindows READ javascriptCanCloseWindows WRITE setJavascriptCanCloseWindows NOTIFY
+            javascriptCanCloseWindowsChanged)
 
     // Getters (all existing ones remain)
     bool debug() const;
