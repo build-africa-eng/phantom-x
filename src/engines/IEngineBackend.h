@@ -17,12 +17,12 @@ class QNetworkProxy; // For network proxy settings
  * All concrete engine implementations (e.g., QtWebKit, Playwright, etc.) must implement
  * the pure virtual functions defined here.
  */
-class IEngineBackend : public QObject
-{
+class IEngineBackend : public QObject {
     Q_OBJECT
 
 public:
-    explicit IEngineBackend(QObject* parent = nullptr) : QObject(parent) {}
+    explicit IEngineBackend(QObject* parent = nullptr)
+        : QObject(parent) { }
     virtual ~IEngineBackend() = default;
 
     // --- Core Page Navigation and Loading ---
@@ -32,7 +32,8 @@ public:
      * @param operation The operation type (e.g., "GET", "POST").
      * @param content The content for POST requests.
      */
-    virtual void load(const QUrl& url, const QString& operation = "GET", const QVariantMap& content = QVariantMap()) = 0;
+    virtual void load(const QUrl& url, const QString& operation = "GET", const QVariantMap& content = QVariantMap())
+        = 0;
 
     /**
      * @brief Reloads the current page.
@@ -58,7 +59,6 @@ public:
     virtual void goForward() = 0;
     virtual bool go(int historyRelativeIndex) = 0;
 
-
     // --- JavaScript Execution & Interaction ---
     /**
      * @brief Evaluates JavaScript code in the page's current frame context.
@@ -81,7 +81,9 @@ public:
      * @param mouseButton For mouse events (e.g., "left", "right").
      * @param modifierArg Modifier keys (e.g., "shift", "control").
      */
-    virtual void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton, const QVariant& modifierArg) = 0;
+    virtual void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton,
+        const QVariant& modifierArg)
+        = 0;
 
     /**
      * @brief Uploads files to an HTML file input element.
@@ -131,8 +133,10 @@ public:
 
     // --- Rendering ---
     virtual bool render(const QString& filename, const QString& selector = "", int quality = -1) = 0;
-    virtual QByteArray renderBase64(const QString& format = "png", const QString& selector = "", int quality = -1) = 0; // Returns QByteArray
-    virtual bool renderPdf(const QString& filename, const QVariantMap& options = QVariantMap()) = 0; // Incorporates paperSize, headers, footers
+    virtual QByteArray renderBase64(const QString& format = "png", const QString& selector = "", int quality = -1)
+        = 0; // Returns QByteArray
+    virtual bool renderPdf(const QString& filename, const QVariantMap& options = QVariantMap())
+        = 0; // Incorporates paperSize, headers, footers
 
     // --- Cookie Management ---
     virtual void setCookieJar(CookieJar* cookieJar) = 0;
@@ -168,7 +172,6 @@ public:
     // This will likely just emit a signal for Playwright to launch external inspector
     virtual int showInspector(int remotePort = -1) = 0;
 
-
     // --- Signals (to be emitted by concrete implementations) ---
 signals:
     // Core Navigation/Loading
@@ -188,8 +191,8 @@ signals:
     // Resource Handling (more detailed data for Playwright's power)
     void resourceRequested(const QVariantMap& requestData); // Use map for full details
     void resourceReceived(const QVariantMap& responseData); // Use map for full details
-    void resourceError(const QVariantMap& errorData);       // Use map for full details
-    void resourceTimeout(const QVariantMap& errorData);     // Use map for full details
+    void resourceError(const QVariantMap& errorData); // Use map for full details
+    void resourceTimeout(const QVariantMap& errorData); // Use map for full details
 
     // Navigation and Popups
     void navigationRequested(const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
@@ -203,7 +206,8 @@ signals:
     void initialized(); // This is typically after main frame JS context is ready
 
     // TODO: Add more signals as needed for future Playwright features
-    // e.g., 'dialogOpened', 'requestFinished', 'requestFailed', 'response', 'websocketCreated', 'console' (for richer console messages)
+    // e.g., 'dialogOpened', 'requestFinished', 'requestFailed', 'response', 'websocketCreated', 'console' (for richer
+    // console messages)
 
 protected:
     QString m_libraryPath; // Stored by the backend, set by WebPage
