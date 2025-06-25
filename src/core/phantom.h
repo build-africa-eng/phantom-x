@@ -34,12 +34,12 @@
 #include <QPointer> // Line 4: Required for QPointer<WebPage>
 
 #include "childprocess.h" // Line 6: Existing include
-#include "config.h"       // Line 7: Existing include
-#include "cookiejar.h"    // Line 8: Existing include
-#include "encoding.h"     // Line 9: Existing include
-#include "filesystem.h"   // Line 10: Existing include
-#include "system.h"       // Line 11: Existing include
-#include "webpage.h"      // Line 12: Ensure WebPage is included for WebPage* declarations
+#include "config.h" // Line 7: Existing include
+#include "cookiejar.h" // Line 8: Existing include
+#include "encoding.h" // Line 9: Existing include
+#include "filesystem.h" // Line 10: Existing include
+#include "system.h" // Line 11: Existing include
+#include "webpage.h" // Line 12: Ensure WebPage is included for WebPage* declarations
 // Line 13: Removed 'class CustomPage;' as it's no longer used.
 class WebServer; // Line 14: Existing forward declaration
 
@@ -47,18 +47,18 @@ class Phantom : public QObject {
     Q_OBJECT // Line 17: Required for QObject functionality and Q_PROPERTY
 
     Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings) // Line 19: Existing property
-    Q_PROPERTY(QString libraryPath READ libraryPath WRITE setLibraryPath) // Line 20: Existing property
-    Q_PROPERTY(QString outputEncoding READ outputEncoding WRITE setOutputEncoding) // Line 21: Existing property
-    Q_PROPERTY(QVariantMap version READ version) // Line 22: Existing property
-    Q_PROPERTY(QObject* page READ page) // Line 23: Existing property
-    Q_PROPERTY(bool cookiesEnabled READ areCookiesEnabled WRITE setCookiesEnabled) // Line 24: Existing property
-    Q_PROPERTY(QVariantList cookies READ cookies WRITE setCookies) // Line 25: Existing property
-    Q_PROPERTY(int remoteDebugPort READ remoteDebugPort) // Line 26: Existing property
+        Q_PROPERTY(QString libraryPath READ libraryPath WRITE setLibraryPath) // Line 20: Existing property
+        Q_PROPERTY(QString outputEncoding READ outputEncoding WRITE setOutputEncoding) // Line 21: Existing property
+        Q_PROPERTY(QVariantMap version READ version) // Line 22: Existing property
+        Q_PROPERTY(QObject* page READ page) // Line 23: Existing property
+        Q_PROPERTY(bool cookiesEnabled READ areCookiesEnabled WRITE setCookiesEnabled) // Line 24: Existing property
+        Q_PROPERTY(QVariantList cookies READ cookies WRITE setCookies) // Line 25: Existing property
+        Q_PROPERTY(int remoteDebugPort READ remoteDebugPort) // Line 26: Existing property
 
-private:
-    // Private constructor: the Phantom class is a singleton
-    // Line 29: Existing constructor declaration
-    Phantom(QObject* parent = 0);
+        private :
+        // Private constructor: the Phantom class is a singleton
+        // Line 29: Existing constructor declaration
+        Phantom(QObject* parent = 0);
     // Line 30: Existing init method
     void init();
 
@@ -206,7 +206,7 @@ public slots:
      */
     // Line 140: Existing setProxy slot
     void setProxy(const QString& ip, const qint64& port = 80, const QString& proxyType = "http",
-                  const QString& user = QString(), const QString& password = QString());
+        const QString& user = QString(), const QString& password = QString());
 
     // Line 142: Existing proxy getter
     QString proxy();
