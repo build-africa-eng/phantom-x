@@ -811,18 +811,49 @@ void PlaywrightEngineBackend::switchToFocusedFrame() {
 }
 
 void PlaywrightEngineBackend::exposeQObject(const QString& name, QObject* object) {
-    qDebug() << "PlaywrightEngineBackend: exposeQObject called (stub). Name:" << name
-             << "Object:" << object->objectName();
-    // This is a complex part. For Playwright, this will involve serializing
-    // the QObject's meta-information (methods, properties) and sending to Node.js,
-    // which then uses Playwright's `page.exposeFunction` or similar.
-    // For now, it's a stub that just logs.
-    // Real implementation would analyze QObject and expose its slots.
+    qDebug() << "PlaywrightEngineBackend: exposeQObject called. Name:" << name << "Object:" << object->objectName();
+
+    QVariantList invokableMethodNames;
+    const QMetaObject* meta = object->metaObject();
+    for (int i = meta->methodOffset(); i < meta->methodCount(); ++i) {
+        QMetaMethod method = meta->method(i);
+        // Only expose invokable slots
+        if (method.methodType() == QMetaMethod::Slot && method.accessSpecifier() == QMetaMethod::Public && method.tag() != QMetaMethod::Signal) {
+            // Get method name without arguments
+            QString methodName = QString::fromLatin1(method.methodSignature()).split('(').first();
+            // Exclude internal PhantomJS methods (starting with '_') if not meant for user JS
+            if (!methodName.startsWith('_')) {
+                 invokableMethodNames.append(methodName);
+            }
+        }
+    }
+
+    QVariantMap exposedProperties;
+    for (int i = meta->propertyOffset(); i < meta->propertyCount(); ++i) {
+        QMetaProperty prop = meta->property(i);
+        // Only expose scriptable properties
+        if (prop.isScriptable() && prop.isValid()) {
+            QString propertyName = QString::fromLatin1(prop.name());
+            // Exclude internal properties (starting with '_')
+            if (!propertyName.startsWith('_')) {
+                // For now, we'll just send the name, not the value. The JS side will then 'get' the value.
+                exposedProperties[propertyName] = prop.typeName(); // Send type name for introspection
+            }
+        }
+    }
+
+
     QVariantMap params;
-    params["name"] = name;
-    // You would pass metadata about the QObject (methods, properties) here.
-    // Example: get a list of invokable slots from object->metaObject()
-    sendAsyncCommand("exposeQObject", params);
+    params["objectName"] = name;
+    params["methods"] = invokableMethodNames;
+    params["properties"] = exposedProperties; // List properties that can be gotten/set
+
+    // Store a QPointer to the object internally if we need to call its methods from IPC responses
+    // For now, we'll assume the Playwright backend will directly handle callPhantom / _repl calls
+    // and route them back to the C++ 'Phantom' or 'REPL' instance.
+    // A map like QMap<QString, QObject*> m_exposedObjects; would store them.
+
+    sendAsyncCommand("exposeObject", params);
 }
 
 void PlaywrightEngineBackend::clickElement(const QString& selector) {
