@@ -41,23 +41,22 @@ class WebPage; // Now directly referencing WebPage, not QWebFrame
 
 // linenoise library declarations (assuming it's a C library)
 extern "C" {
-    struct linenoiseCompletions;
-    typedef void(linenoiseCompletionCallbackFn)(const char* /*buf*/, linenoiseCompletions* /*lc*/);
-    void linenoiseSetCompletionCallback(linenoiseCompletionCallbackFn*);
-    void linenoiseAddCompletion(linenoiseCompletions*, const char* /*str*/);
-    char* linenoise(const char* /*prompt*/);
-    void linenoiseHistoryLoad(const char* /*filename*/);
-    void linenoiseHistorySave(const char* /*filename*/);
-    void linenoiseHistoryAdd(const char* /*line*/);
-    void linenoiseFree(void* /*ptr*/);
+struct linenoiseCompletions;
+typedef void(linenoiseCompletionCallbackFn)(const char* /*buf*/, linenoiseCompletions* /*lc*/);
+void linenoiseSetCompletionCallback(linenoiseCompletionCallbackFn*);
+void linenoiseAddCompletion(linenoiseCompletions*, const char* /*str*/);
+char* linenoise(const char* /*prompt*/);
+void linenoiseHistoryLoad(const char* /*filename*/);
+void linenoiseHistorySave(const char* /*filename*/);
+void linenoiseHistoryAdd(const char* /*line*/);
+void linenoiseFree(void* /*ptr*/);
 }
 
 /**
  * @brief REPL (Read-Eval-Print-Loop) provides an interactive console for PhantomJS.
  * It allows users to type JavaScript commands and see the results directly.
  */
-class REPL : public QObject
-{
+class REPL : public QObject {
     Q_OBJECT
 
     // Q_PROPERTY(QVariant returnValue READ returnValue WRITE setReturnValue) // Not directly used in REPL itself
@@ -76,7 +75,6 @@ private:
     // Helper methods for JavaScript completions, moved to private as they are internal to REPL
     QString _getClassName(QObject* obj) const;
     QStringList _enumerateCompletions(QObject* obj) const;
-
 
 public slots: // Exposed to JavaScript via _repl object
     // These methods are called by the repl.js script in the browser context
