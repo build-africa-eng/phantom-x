@@ -31,7 +31,7 @@
 #include <QDir>
 #include <QMetaMethod>
 #include <QMetaProperty>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QSet>
@@ -42,174 +42,110 @@
 
 #define PROMPT "phantomjs> "
 #define HISTORY_FILENAME "phantom_repl_history"
-
-// Only with word characters, spaces and the dot ('.')
-//  we can still attempt to offer a completion to the user
 #define REGEXP_NON_COMPLETABLE_CHARS "[^\\w\\s\\.]"
-
-// JS Code to find possible completions
 #define JS_RETURN_POSSIBLE_COMPLETIONS "REPL._getCompletions(%1, \"%2\");"
-
-// JS Code to evaluate User Input and prettify the expression result
-#define JS_EVAL_USER_INPUT                                                                                             \
-    "try { "                                                                                                           \
-    "REPL._lastEval = eval(\"%1\");"                                                                                   \
-    "console.log(JSON.stringify(REPL._lastEval, REPL._expResStringifyReplacer, "                                       \
-    "'   ')); "                                                                                                        \
-    "} catch(e) { "                                                                                                    \
-    "if (e instanceof TypeError) { "                                                                                   \
-    "console.error(\"'%1' is a cyclic structure\"); "                                                                  \
-    "} else { "                                                                                                        \
-    "console.error(e.message);"                                                                                        \
-    "}"                                                                                                                \
+#define JS_EVAL_USER_INPUT \
+    "try { " \
+    "REPL._lastEval = eval(\"%1\");" \
+    "console.log(JSON.stringify(REPL._lastEval, REPL._expResStringifyReplacer, '    ')); " \
+    "} catch(e) { " \
+    "if (e instanceof TypeError) { " \
+    "console.error(\"'%1' is a cyclic structure\"); " \
+    "} else { " \
+    "console.error(e.message);" \
+    "}" \
     "} "
 
-// public:
-bool REPL::instanceExists() { return REPL::getInstance() != Q_NULLPTR; }
+bool REPL::instanceExists() { return REPL::getInstance() != nullptr; }
 
 REPL* REPL::getInstance(QWebFrame* webframe, Phantom* parent) {
-    static REPL* singleton = Q_NULLPTR;
+    static REPL* singleton = nullptr;
     if (!singleton && webframe && parent) {
-        // This will create the singleton only when all the parameters are given
         singleton = new REPL(webframe, parent);
     }
     return singleton;
 }
 
 QString REPL::_getClassName(QObject* obj) const {
-    const QMetaObject* meta = obj->metaObject();
-
-    return QString::fromLatin1(meta->className());
+    return QString::fromLatin1(obj->metaObject()->className());
 }
 
 QStringList REPL::_enumerateCompletions(QObject* obj) const {
     const QMetaObject* meta = obj->metaObject();
-    QMap<QString, bool> completions;
+    QSet<QString> completions;
 
-    // List up slots, signals, and invokable methods
-    const int methodOffset = meta->methodOffset();
-    const int methodCount = meta->methodCount();
-    for (int i = methodOffset; i < methodCount; i++) {
-        const QString name = QString::fromLatin1(meta->method(i).methodSignature());
-        // Ignore methods starting with underscores
-        if (name.startsWith('_')) {
-            continue;
+    for (int i = meta->methodOffset(); i < meta->methodCount(); ++i) {
+        QString name = QString::fromLatin1(meta->method(i).methodSignature());
+        if (!name.startsWith('_')) {
+            int cutoff = name.indexOf('(');
+            completions.insert(cutoff > 0 ? name.left(cutoff) : name);
         }
-        // Keep only up to, but not including, first paren
-        const int cutoff = name.indexOf('(');
-        completions.insert((0 < cutoff ? name.left(cutoff) : name), true);
     }
 
-    // List up properties
-    const int propertyOffset = meta->propertyOffset();
-    const int propertyCount = meta->propertyCount();
-    for (int i = propertyOffset; i < propertyCount; i++) {
-        const QMetaProperty prop = meta->property(i);
-        // Ignore non-scriptable properties
-        if (!prop.isScriptable()) {
-            continue;
+    for (int i = meta->propertyOffset(); i < meta->propertyCount(); ++i) {
+        QMetaProperty prop = meta->property(i);
+        QString name = QString::fromLatin1(prop.name());
+        if (prop.isScriptable() && !name.startsWith('_')) {
+            completions.insert(name);
         }
-        const QString name = QString::fromLatin1(prop.name());
-        // Ignore properties starting with underscores
-        if (name.startsWith('_')) {
-            continue;
-        }
-        completions.insert(name, true);
     }
 
-    QStringList keys = completions.keys().toSet().values();
+    QStringList keys = completions.values();
     std::sort(keys.begin(), keys.end());
     return keys;
 }
 
-// private:
 REPL::REPL(QWebFrame* webframe, Phantom* parent)
-    : QObject(parent)
-    , m_looping(true) {
-    m_webframe = webframe;
-    m_parentPhantom = parent;
+    : QObject(parent), m_looping(true), m_webframe(webframe), m_parentPhantom(parent) {
     m_historyFilepath = QString("%1/%2")
-                            .arg(QStandardPaths::writableLocation(QStandardPaths::DataLocation), HISTORY_FILENAME)
+                            .arg(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation), HISTORY_FILENAME)
                             .toLocal8Bit();
 
-    // Ensure the location for the history file exists
-    QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
+    QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
 
-    // Listen for Phantom exit(ing)
-    connect(m_parentPhantom, SIGNAL(aboutToExit(int)), this, SLOT(stopLoop(int)));
+    connect(m_parentPhantom, &Phantom::aboutToExit, this, &REPL::stopLoop);
 
-    // Set the static callback to offer Completions to the User
     linenoiseSetCompletionCallback(REPL::offerCompletion);
 
-    // Inject REPL utility functions
     m_webframe->evaluateJavaScript(Utils::readResourceFileUtf8(":/repl.js"));
-
-    // Add self to JavaScript world
     m_webframe->addToJavaScriptWindowObject("_repl", this);
 
-    // Start the REPL's loop
-    QTimer::singleShot(0, this, SLOT(startLoop()));
+    QTimer::singleShot(0, this, &REPL::startLoop);
 }
 
 void REPL::offerCompletion(const char* buf, linenoiseCompletions* lc) {
-    // IF there is a ( or ), then do nothing (we can't complete)
     QString buffer(buf);
-    int lastIndexOfDot = -1;
-    QString toInspect, toComplete;
-    QRegExp nonCompletableChars(REGEXP_NON_COMPLETABLE_CHARS);
+    QRegularExpression nonCompletableChars(REGEXP_NON_COMPLETABLE_CHARS);
 
-    // If we encounter a non acceptable character (see above)
-    if (buffer.contains(nonCompletableChars)) {
-        return;
-    }
+    if (nonCompletableChars.match(buffer).hasMatch()) return;
 
-    // Decompose what user typed so far in 2 parts: what toInspect and what
-    // toComplete.
-    lastIndexOfDot = buffer.lastIndexOf('.');
-    if (lastIndexOfDot > -1) {
-        toInspect = buffer.left(lastIndexOfDot);
-        toComplete = buffer.right(buffer.length() - lastIndexOfDot - 1);
-    } else {
-        // Nothing to inspect: use the global "window" object
-        toInspect = "window";
-        toComplete = buffer;
-    }
+    int lastIndexOfDot = buffer.lastIndexOf('.');
+    QString toInspect = (lastIndexOfDot > -1) ? buffer.left(lastIndexOfDot) : "window";
+    QString toComplete = (lastIndexOfDot > -1) ? buffer.mid(lastIndexOfDot + 1) : buffer;
 
-    // This will return an array of String with the possible completions
-    QStringList completions
-        = REPL::getInstance()
-              ->m_webframe->evaluateJavaScript(QString(JS_RETURN_POSSIBLE_COMPLETIONS).arg(toInspect, toComplete))
-              .toStringList();
+    QStringList completions = REPL::getInstance()
+                                   ->m_webframe
+                                   ->evaluateJavaScript(QString(JS_RETURN_POSSIBLE_COMPLETIONS).arg(toInspect, toComplete))
+                                   .toStringList();
 
-    foreach (QString c, completions) {
-        if (lastIndexOfDot > -1) {
-            // Preserve the "toInspect" portion of the string to complete
-            linenoiseAddCompletion(lc, QString("%1.%2").arg(toInspect, c).toLocal8Bit().data());
-        } else {
-            linenoiseAddCompletion(lc, c.toLocal8Bit().data());
-        }
+    for (const QString& c : completions) {
+        QString suggestion = (lastIndexOfDot > -1) ? QString("%1.%2").arg(toInspect, c) : c;
+        linenoiseAddCompletion(lc, suggestion.toLocal8Bit().data());
     }
 }
 
-// private slots:
 void REPL::startLoop() {
     char* userInput;
-
-    // Load REPL history
-    linenoiseHistoryLoad(m_historyFilepath.data()); //< requires "char *"
-    while (m_looping && (userInput = linenoise(PROMPT)) != Q_NULLPTR) {
+    linenoiseHistoryLoad(m_historyFilepath.data());
+    while (m_looping && (userInput = linenoise(PROMPT)) != nullptr) {
         if (userInput[0] != '\0') {
-            // Send the user input to the main Phantom frame for evaluation
             m_webframe->evaluateJavaScript(QString(JS_EVAL_USER_INPUT).arg(QString(userInput).replace('"', "\\\"")));
-
-            // Save command in the REPL history
             linenoiseHistoryAdd(userInput);
-            linenoiseHistorySave(m_historyFilepath.data()); //< requires "char *"
+            linenoiseHistorySave(m_historyFilepath.data());
         }
         free(userInput);
     }
 
-    // If still "looping", close Phantom (usually caused by "CTRL+C" / "CTRL+D")
     if (m_looping) {
         m_parentPhantom->exit();
     }
