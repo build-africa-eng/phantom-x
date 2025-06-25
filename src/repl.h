@@ -48,31 +48,32 @@ extern "C" {
  * if previously created.
  *
  * It's based the Linenoise library (https://github.com/tadmarshall/linenoise).
- * More info about REPL: http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop
+ * More info about REPL:
+ * http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop
  */
 class REPL : public QObject {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-    static bool instanceExists();
-    static REPL* getInstance(QWebFrame* webframe = NULL, Phantom* parent = NULL);
+  static bool instanceExists();
+  static REPL *getInstance(QWebFrame *webframe = NULL, Phantom *parent = NULL);
 
-    Q_INVOKABLE QString _getClassName(QObject* obj) const;
-    Q_INVOKABLE QStringList _enumerateCompletions(QObject* obj) const;
+  Q_INVOKABLE QString _getClassName(QObject *obj) const;
+  Q_INVOKABLE QStringList _enumerateCompletions(QObject *obj) const;
 
 private:
-    REPL(QWebFrame* webframe, Phantom* parent);
-    static void offerCompletion(const char* buf, linenoiseCompletions* lc);
+  REPL(QWebFrame *webframe, Phantom *parent);
+  static void offerCompletion(const char *buf, linenoiseCompletions *lc);
 
 private slots:
-    void startLoop();
-    void stopLoop(const int code);
+  void startLoop();
+  void stopLoop(const int code);
 
 private:
-    QWebFrame* m_webframe;
-    Phantom* m_parentPhantom;
-    bool m_looping;
-    QByteArray m_historyFilepath;
+  QWebFrame *m_webframe;
+  Phantom *m_parentPhantom;
+  bool m_looping;
+  QByteArray m_historyFilepath;
 };
 
 #endif // REPL_H

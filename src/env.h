@@ -34,17 +34,17 @@
 #include <QVariantMap>
 
 class Env : public QObject {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-    static Env* instance();
+  static Env *instance();
 
-    QVariantMap asVariantMap() const;
+  QVariantMap asVariantMap() const;
 
 private:
-    Env();
+  Env();
 
-    QVariantMap m_map;
+  QVariantMap m_map;
 };
 
 #endif // ENV_H

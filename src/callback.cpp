@@ -31,25 +31,17 @@
 
 #include <QDebug>
 
-Callback::Callback(QObject* parent)
-    : QObject(parent)
-{
+Callback::Callback(QObject *parent) : QObject(parent) {}
+
+QVariant Callback::call(const QVariantList &arguments) {
+  emit called(arguments);
+
+  qDebug() << "Callback - call result:" << m_returnValue;
+  return m_returnValue;
 }
 
-QVariant Callback::call(const QVariantList& arguments)
-{
-    emit called(arguments);
+QVariant Callback::returnValue() const { return m_returnValue; }
 
-    qDebug() << "Callback - call result:" << m_returnValue;
-    return m_returnValue;
-}
-
-QVariant Callback::returnValue() const
-{
-    return m_returnValue;
-}
-
-void Callback::setReturnValue(const QVariant& returnValue)
-{
-    m_returnValue = returnValue;
+void Callback::setReturnValue(const QVariant &returnValue) {
+  m_returnValue = returnValue;
 }

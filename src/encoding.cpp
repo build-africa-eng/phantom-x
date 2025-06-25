@@ -30,71 +30,61 @@
 
 #include "encoding.h"
 
-Encoding::Encoding()
-{
-    QTextCodec* codec = QTextCodec::codecForName(DEFAULT_CODEC_NAME);
+Encoding::Encoding() {
+  QTextCodec *codec = QTextCodec::codecForName(DEFAULT_CODEC_NAME);
 
-    // Fall back to locale codec
-    if (!codec) {
-        codec = QTextCodec::codecForLocale();
+  // Fall back to locale codec
+  if (!codec) {
+    codec = QTextCodec::codecForLocale();
+  }
+
+  m_codec = codec;
+}
+
+Encoding::Encoding(const QString &encoding) { setEncoding(encoding); }
+
+Encoding::~Encoding() {
+  if (m_codec) {
+    // TODO: Encoding class does not inherit QObject, so
+    // we have to nullifyt m_codec member manually;
+    m_codec = Q_NULLPTR;
+  }
+}
+
+QString Encoding::decode(const QByteArray &bytes) const {
+  return getCodec()->toUnicode(bytes);
+}
+
+QByteArray Encoding::encode(const QString &string) const {
+  return getCodec()->fromUnicode(string);
+}
+
+QString Encoding::getName() const {
+  // TODO Is it safe to assume UTF-8 here?
+  return QString::fromUtf8(getCodec()->name());
+}
+
+void Encoding::setEncoding(const QString &encoding) {
+  if (!encoding.isEmpty()) {
+    QTextCodec *codec = QTextCodec::codecForName(encoding.toLatin1());
+
+    if (codec) {
+      m_codec = codec;
     }
-
-    m_codec = codec;
-}
-
-Encoding::Encoding(const QString& encoding)
-{
-    setEncoding(encoding);
-}
-
-Encoding::~Encoding()
-{
-    if (m_codec) {
-        // TODO: Encoding class does not inherit QObject, so
-        // we have to nullifyt m_codec member manually;
-        m_codec = Q_NULLPTR;
-    }
-}
-
-QString Encoding::decode(const QByteArray& bytes) const
-{
-    return getCodec()->toUnicode(bytes);
-}
-
-QByteArray Encoding::encode(const QString& string) const
-{
-    return getCodec()->fromUnicode(string);
-}
-
-QString Encoding::getName() const
-{
-    // TODO Is it safe to assume UTF-8 here?
-    return QString::fromUtf8(getCodec()->name());
-}
-
-void Encoding::setEncoding(const QString& encoding)
-{
-    if (!encoding.isEmpty()) {
-        QTextCodec* codec = QTextCodec::codecForName(encoding.toLatin1());
-
-        if (codec) {
-            m_codec = codec;
-        }
-    }
+  }
 }
 
 const Encoding Encoding::UTF8 = Encoding("UTF-8");
 
 // private:
-QTextCodec* Encoding::getCodec() const
-{
-    QTextCodec* codec = m_codec;
+QTextCodec *Encoding::getCodec() const {
+  QTextCodec *codec = m_codec;
 
-    if (!codec) {
-        codec = QTextCodec::codecForLocale();
-    }
+  if (!codec) {
+    codec = QTextCodec::codecForLocale();
+  }
 
-    return codec;
+  return codec;
 }
 
 const QByteArray Encoding::DEFAULT_CODEC_NAME = "UTF-8";

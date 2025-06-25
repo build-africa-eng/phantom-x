@@ -43,16 +43,18 @@
 #define JAVASCRIPT_SOURCE_PLATFORM_URL "phantomjs://platform/%1"
 #define JAVASCRIPT_SOURCE_CODE_URL "phantomjs://code/%1"
 
-#define JS_ELEMENT_CLICK "(function (el) { "                             \
-                         "var ev = document.createEvent('MouseEvents');" \
-                         "ev.initEvent(\"click\", true, true);"          \
-                         "el.dispatchEvent(ev);"                         \
-                         "})(this);"
+#define JS_ELEMENT_CLICK                                                       \
+  "(function (el) { "                                                          \
+  "var ev = document.createEvent('MouseEvents');"                              \
+  "ev.initEvent(\"click\", true, true);"                                       \
+  "el.dispatchEvent(ev);"                                                      \
+  "})(this);"
 
-#define JS_APPEND_SCRIPT_ELEMENT "var el = document.createElement('script');" \
-                                 "el.onload = function() { alert('%1'); };"   \
-                                 "el.src = '%1';"                             \
-                                 "document.body.appendChild(el);"
+#define JS_APPEND_SCRIPT_ELEMENT                                               \
+  "var el = document.createElement('script');"                                 \
+  "el.onload = function() { alert('%1'); };"                                   \
+  "el.src = '%1';"                                                             \
+  "document.body.appendChild(el);"
 
 #define PAGE_SETTINGS_LOAD_IMAGES "loadImages"
 #define PAGE_SETTINGS_JS_ENABLED "javascriptEnabled"

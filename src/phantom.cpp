@@ -57,464 +57,433 @@
 #error "This version of QtWebKit is not supported. Please use QtWebKit >= 5.212"
 #endif
 
-static Phantom* phantomInstance = Q_NULLPTR;
+static Phantom *phantomInstance = Q_NULLPTR;
 
 // private:
-Phantom::Phantom(QObject* parent)
-    : QObject(parent)
-    , m_terminated(false)
-    , m_returnValue(0)
-    , m_filesystem(0)
-    , m_system(0)
-    , m_childprocess(0)
-{
-    QStringList args = QApplication::arguments();
+Phantom::Phantom(QObject *parent)
+    : QObject(parent), m_terminated(false), m_returnValue(0), m_filesystem(0),
+      m_system(0), m_childprocess(0) {
+  QStringList args = QApplication::arguments();
 
-    // Prepare the configuration object based on the command line arguments.
-    // Because this object will be used by other classes, it needs to be ready ASAP.
-    m_config.init(&args);
-    // Apply debug configuration as early as possible
-    Utils::printDebugMessages = m_config.printDebugMessages();
+  // Prepare the configuration object based on the command line arguments.
+  // Because this object will be used by other classes, it needs to be ready
+  // ASAP.
+  m_config.init(&args);
+  // Apply debug configuration as early as possible
+  Utils::printDebugMessages = m_config.printDebugMessages();
 }
 
-void Phantom::init()
-{
-    if (m_config.helpFlag()) {
-        Terminal::instance()->cout(QString("%1").arg(m_config.helpText()));
-        Terminal::instance()->cout("Any of the options that accept boolean values ('true'/'false') can also accept 'yes'/'no'.");
-        Terminal::instance()->cout("");
-        Terminal::instance()->cout("Without any argument, PhantomJS will launch in interactive mode (REPL).");
-        Terminal::instance()->cout("");
-        Terminal::instance()->cout("Documentation can be found at the web site, http://phantomjs.org.");
-        Terminal::instance()->cout("");
-        m_terminated = true;
-        return;
-    }
+void Phantom::init() {
+  if (m_config.helpFlag()) {
+    Terminal::instance()->cout(QString("%1").arg(m_config.helpText()));
+    Terminal::instance()->cout("Any of the options that accept boolean values "
+                               "('true'/'false') can also accept 'yes'/'no'.");
+    Terminal::instance()->cout("");
+    Terminal::instance()->cout("Without any argument, PhantomJS will launch in "
+                               "interactive mode (REPL).");
+    Terminal::instance()->cout("");
+    Terminal::instance()->cout(
+        "Documentation can be found at the web site, http://phantomjs.org.");
+    Terminal::instance()->cout("");
+    m_terminated = true;
+    return;
+  }
 
-    if (m_config.versionFlag()) {
-        m_terminated = true;
-        Terminal::instance()->cout(QString("%1").arg(PHANTOMJS_VERSION_STRING));
-        return;
-    }
+  if (m_config.versionFlag()) {
+    m_terminated = true;
+    Terminal::instance()->cout(QString("%1").arg(PHANTOMJS_VERSION_STRING));
+    return;
+  }
 
-    if (!m_config.unknownOption().isEmpty()) {
-        Terminal::instance()->cerr(m_config.unknownOption());
-        m_terminated = true;
-        return;
-    }
+  if (!m_config.unknownOption().isEmpty()) {
+    Terminal::instance()->cerr(m_config.unknownOption());
+    m_terminated = true;
+    return;
+  }
 
-    // Initialize the CookieJar
-    m_defaultCookieJar = new CookieJar(m_config.cookiesFile());
+  // Initialize the CookieJar
+  m_defaultCookieJar = new CookieJar(m_config.cookiesFile());
 
-    // set the default DPI
-    m_defaultDpi = qRound(QApplication::primaryScreen()->logicalDotsPerInch());
+  // set the default DPI
+  m_defaultDpi = qRound(QApplication::primaryScreen()->logicalDotsPerInch());
 
-    QWebSettings::setOfflineWebApplicationCachePath(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
-    if (m_config.offlineStoragePath().isEmpty()) {
-        QWebSettings::setOfflineStoragePath(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
-    } else {
-        QWebSettings::setOfflineStoragePath(m_config.offlineStoragePath());
-    }
-    if (m_config.offlineStorageDefaultQuota() > 0) {
-        QWebSettings::setOfflineStorageDefaultQuota(m_config.offlineStorageDefaultQuota());
-    }
+  QWebSettings::setOfflineWebApplicationCachePath(
+      QStandardPaths::writableLocation(QStandardPaths::DataLocation));
+  if (m_config.offlineStoragePath().isEmpty()) {
+    QWebSettings::setOfflineStoragePath(
+        QStandardPaths::writableLocation(QStandardPaths::DataLocation));
+  } else {
+    QWebSettings::setOfflineStoragePath(m_config.offlineStoragePath());
+  }
+  if (m_config.offlineStorageDefaultQuota() > 0) {
+    QWebSettings::setOfflineStorageDefaultQuota(
+        m_config.offlineStorageDefaultQuota());
+  }
 
-    m_page = new WebPage(this, QUrl::fromLocalFile(m_config.scriptFile()));
-    m_page->setCookieJar(m_defaultCookieJar);
-    m_pages.append(m_page);
+  m_page = new WebPage(this, QUrl::fromLocalFile(m_config.scriptFile()));
+  m_page->setCookieJar(m_defaultCookieJar);
+  m_pages.append(m_page);
 
-    // Set up proxy if required
-    QString proxyType = m_config.proxyType();
-    if (proxyType != "none") {
-        setProxy(m_config.proxyHost(), m_config.proxyPort(), proxyType, m_config.proxyAuthUser(), m_config.proxyAuthPass());
-    }
+  // Set up proxy if required
+  QString proxyType = m_config.proxyType();
+  if (proxyType != "none") {
+    setProxy(m_config.proxyHost(), m_config.proxyPort(), proxyType,
+             m_config.proxyAuthUser(), m_config.proxyAuthPass());
+  }
 
-    // Set output encoding
-    Terminal::instance()->setEncoding(m_config.outputEncoding());
+  // Set output encoding
+  Terminal::instance()->setEncoding(m_config.outputEncoding());
 
-    // Set script file encoding
-    m_scriptFileEnc.setEncoding(m_config.scriptEncoding());
+  // Set script file encoding
+  m_scriptFileEnc.setEncoding(m_config.scriptEncoding());
 
-    connect(m_page, SIGNAL(javaScriptConsoleMessageSent(QString)),
-        SLOT(printConsoleMessage(QString)));
-    connect(m_page, SIGNAL(initialized()),
-        SLOT(onInitialized()));
+  connect(m_page, SIGNAL(javaScriptConsoleMessageSent(QString)),
+          SLOT(printConsoleMessage(QString)));
+  connect(m_page, SIGNAL(initialized()), SLOT(onInitialized()));
 
-    m_defaultPageSettings[PAGE_SETTINGS_LOAD_IMAGES] = QVariant::fromValue(m_config.autoLoadImages());
-    m_defaultPageSettings[PAGE_SETTINGS_JS_ENABLED] = QVariant::fromValue(true);
-    m_defaultPageSettings[PAGE_SETTINGS_XSS_AUDITING] = QVariant::fromValue(false);
-    m_defaultPageSettings[PAGE_SETTINGS_USER_AGENT] = QVariant::fromValue(m_page->userAgent());
-    m_defaultPageSettings[PAGE_SETTINGS_LOCAL_ACCESS_REMOTE] = QVariant::fromValue(m_config.localToRemoteUrlAccessEnabled());
-    m_defaultPageSettings[PAGE_SETTINGS_WEB_SECURITY_ENABLED] = QVariant::fromValue(m_config.webSecurityEnabled());
-    m_defaultPageSettings[PAGE_SETTINGS_JS_CAN_OPEN_WINDOWS] = QVariant::fromValue(m_config.javascriptCanOpenWindows());
-    m_defaultPageSettings[PAGE_SETTINGS_JS_CAN_CLOSE_WINDOWS] = QVariant::fromValue(m_config.javascriptCanCloseWindows());
-    m_defaultPageSettings[PAGE_SETTINGS_DPI] = QVariant::fromValue(m_defaultDpi);
-    m_page->applySettings(m_defaultPageSettings);
+  m_defaultPageSettings[PAGE_SETTINGS_LOAD_IMAGES] =
+      QVariant::fromValue(m_config.autoLoadImages());
+  m_defaultPageSettings[PAGE_SETTINGS_JS_ENABLED] = QVariant::fromValue(true);
+  m_defaultPageSettings[PAGE_SETTINGS_XSS_AUDITING] =
+      QVariant::fromValue(false);
+  m_defaultPageSettings[PAGE_SETTINGS_USER_AGENT] =
+      QVariant::fromValue(m_page->userAgent());
+  m_defaultPageSettings[PAGE_SETTINGS_LOCAL_ACCESS_REMOTE] =
+      QVariant::fromValue(m_config.localToRemoteUrlAccessEnabled());
+  m_defaultPageSettings[PAGE_SETTINGS_WEB_SECURITY_ENABLED] =
+      QVariant::fromValue(m_config.webSecurityEnabled());
+  m_defaultPageSettings[PAGE_SETTINGS_JS_CAN_OPEN_WINDOWS] =
+      QVariant::fromValue(m_config.javascriptCanOpenWindows());
+  m_defaultPageSettings[PAGE_SETTINGS_JS_CAN_CLOSE_WINDOWS] =
+      QVariant::fromValue(m_config.javascriptCanCloseWindows());
+  m_defaultPageSettings[PAGE_SETTINGS_DPI] = QVariant::fromValue(m_defaultDpi);
+  m_page->applySettings(m_defaultPageSettings);
 
-    setLibraryPath(QFileInfo(m_config.scriptFile()).dir().absolutePath());
+  setLibraryPath(QFileInfo(m_config.scriptFile()).dir().absolutePath());
 }
 
 // public:
-Phantom* Phantom::instance()
-{
-    if (!phantomInstance) {
-        phantomInstance = new Phantom();
-        phantomInstance->init();
-    }
-    return phantomInstance;
+Phantom *Phantom::instance() {
+  if (!phantomInstance) {
+    phantomInstance = new Phantom();
+    phantomInstance->init();
+  }
+  return phantomInstance;
 }
 
-Phantom::~Phantom()
-{
-    // Nothing to do: cleanup is handled by QObject relationships
+Phantom::~Phantom() {
+  // Nothing to do: cleanup is handled by QObject relationships
 }
 
-QVariantMap Phantom::defaultPageSettings() const
-{
-    return m_defaultPageSettings;
+QVariantMap Phantom::defaultPageSettings() const {
+  return m_defaultPageSettings;
 }
 
-QString Phantom::outputEncoding() const
-{
-    return Terminal::instance()->getEncoding();
+QString Phantom::outputEncoding() const {
+  return Terminal::instance()->getEncoding();
 }
 
-void Phantom::setOutputEncoding(const QString& encoding)
-{
-    Terminal::instance()->setEncoding(encoding);
+void Phantom::setOutputEncoding(const QString &encoding) {
+  Terminal::instance()->setEncoding(encoding);
 }
 
-bool Phantom::execute()
-{
-    if (m_terminated) {
-        return false;
-    }
+bool Phantom::execute() {
+  if (m_terminated) {
+    return false;
+  }
 
 #ifndef QT_NO_DEBUG_OUTPUT
-    qDebug() << "Phantom - execute: Configuration";
-    const QMetaObject* configMetaObj = m_config.metaObject();
-    for (int i = 0, ilen = configMetaObj->propertyCount(); i < ilen; ++i) {
-        qDebug() << "    " << i << configMetaObj->property(i).name() << ":" << m_config.property(configMetaObj->property(i).name()).toString();
-    }
+  qDebug() << "Phantom - execute: Configuration";
+  const QMetaObject *configMetaObj = m_config.metaObject();
+  for (int i = 0, ilen = configMetaObj->propertyCount(); i < ilen; ++i) {
+    qDebug() << "    " << i << configMetaObj->property(i).name() << ":"
+             << m_config.property(configMetaObj->property(i).name()).toString();
+  }
 
-    qDebug() << "Phantom - execute: Script & Arguments";
-    qDebug() << "    "
-             << "script:" << m_config.scriptFile();
-    QStringList args = m_config.scriptArgs();
-    for (int i = 0, ilen = args.length(); i < ilen; ++i) {
-        qDebug() << "    " << i << "arg:" << args.at(i);
-    }
+  qDebug() << "Phantom - execute: Script & Arguments";
+  qDebug() << "    " << "script:" << m_config.scriptFile();
+  QStringList args = m_config.scriptArgs();
+  for (int i = 0, ilen = args.length(); i < ilen; ++i) {
+    qDebug() << "    " << i << "arg:" << args.at(i);
+  }
 #endif
 
-    if (m_config.scriptFile().isEmpty()) { // REPL mode requested
-        qDebug() << "Phantom - execute: Starting REPL mode";
+  if (m_config.scriptFile().isEmpty()) { // REPL mode requested
+    qDebug() << "Phantom - execute: Starting REPL mode";
 
-        // Create the REPL: it will launch itself, no need to store this variable.
-        REPL::getInstance(m_page->mainFrame(), this);
-    } else { // Load the User Script
-        qDebug() << "Phantom - execute: Starting normal mode";
+    // Create the REPL: it will launch itself, no need to store this variable.
+    REPL::getInstance(m_page->mainFrame(), this);
+  } else { // Load the User Script
+    qDebug() << "Phantom - execute: Starting normal mode";
 
-        if (m_config.debug()) {
-            // Debug enabled
-            int originalPort = m_config.remoteDebugPort();
-            m_config.setRemoteDebugPort(m_page->showInspector(m_config.remoteDebugPort()));
-            if (m_config.remoteDebugPort() == 0) {
-                qWarning() << "Can't bind remote debugging server to the port" << originalPort;
-            }
-            if (!Utils::loadJSForDebug(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page->mainFrame(), m_config.remoteDebugAutorun())) {
-                m_returnValue = -1;
-                return false;
-            }
-        } else {
-            if (!Utils::injectJsInFrame(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page->mainFrame(), true)) {
-                m_returnValue = -1;
-                return false;
-            }
-        }
-    }
-
-    return !m_terminated;
-}
-
-int Phantom::returnValue() const
-{
-    return m_returnValue;
-}
-
-QString Phantom::libraryPath() const
-{
-    return m_page->libraryPath();
-}
-
-void Phantom::setLibraryPath(const QString& libraryPath)
-{
-    m_page->setLibraryPath(libraryPath);
-}
-
-QVariantMap Phantom::version() const
-{
-    QVariantMap result;
-    result["major"] = PHANTOMJS_VERSION_MAJOR;
-    result["minor"] = PHANTOMJS_VERSION_MINOR;
-    result["patch"] = PHANTOMJS_VERSION_PATCH;
-    return result;
-}
-
-QObject* Phantom::page() const
-{
-    return m_page;
-}
-
-Config* Phantom::config()
-{
-    return &m_config;
-}
-
-bool Phantom::printDebugMessages() const
-{
-    return m_config.printDebugMessages();
-}
-
-bool Phantom::areCookiesEnabled() const
-{
-    return m_defaultCookieJar->isEnabled();
-}
-
-void Phantom::setCookiesEnabled(const bool value)
-{
-    if (value) {
-        m_defaultCookieJar->enable();
+    if (m_config.debug()) {
+      // Debug enabled
+      int originalPort = m_config.remoteDebugPort();
+      m_config.setRemoteDebugPort(
+          m_page->showInspector(m_config.remoteDebugPort()));
+      if (m_config.remoteDebugPort() == 0) {
+        qWarning() << "Can't bind remote debugging server to the port"
+                   << originalPort;
+      }
+      if (!Utils::loadJSForDebug(m_config.scriptFile(), m_scriptFileEnc,
+                                 QDir::currentPath(), m_page->mainFrame(),
+                                 m_config.remoteDebugAutorun())) {
+        m_returnValue = -1;
+        return false;
+      }
     } else {
-        m_defaultCookieJar->disable();
+      if (!Utils::injectJsInFrame(m_config.scriptFile(), m_scriptFileEnc,
+                                  QDir::currentPath(), m_page->mainFrame(),
+                                  true)) {
+        m_returnValue = -1;
+        return false;
+      }
     }
+  }
+
+  return !m_terminated;
+}
+
+int Phantom::returnValue() const { return m_returnValue; }
+
+QString Phantom::libraryPath() const { return m_page->libraryPath(); }
+
+void Phantom::setLibraryPath(const QString &libraryPath) {
+  m_page->setLibraryPath(libraryPath);
+}
+
+QVariantMap Phantom::version() const {
+  QVariantMap result;
+  result["major"] = PHANTOMJS_VERSION_MAJOR;
+  result["minor"] = PHANTOMJS_VERSION_MINOR;
+  result["patch"] = PHANTOMJS_VERSION_PATCH;
+  return result;
+}
+
+QObject *Phantom::page() const { return m_page; }
+
+Config *Phantom::config() { return &m_config; }
+
+bool Phantom::printDebugMessages() const {
+  return m_config.printDebugMessages();
+}
+
+bool Phantom::areCookiesEnabled() const {
+  return m_defaultCookieJar->isEnabled();
+}
+
+void Phantom::setCookiesEnabled(const bool value) {
+  if (value) {
+    m_defaultCookieJar->enable();
+  } else {
+    m_defaultCookieJar->disable();
+  }
 }
 
 // public slots:
-QObject* Phantom::createCookieJar(const QString& filePath)
-{
-    return new CookieJar(filePath, this);
+QObject *Phantom::createCookieJar(const QString &filePath) {
+  return new CookieJar(filePath, this);
 }
 
-QObject* Phantom::createWebPage()
-{
-    WebPage* page = new WebPage(this);
-    page->setCookieJar(m_defaultCookieJar);
+QObject *Phantom::createWebPage() {
+  WebPage *page = new WebPage(this);
+  page->setCookieJar(m_defaultCookieJar);
 
-    // Store pointer to the page for later cleanup
-    m_pages.append(page);
-    // Apply default settings to the page
-    page->applySettings(m_defaultPageSettings);
+  // Store pointer to the page for later cleanup
+  m_pages.append(page);
+  // Apply default settings to the page
+  page->applySettings(m_defaultPageSettings);
 
-    // Show web-inspector if in debug mode
-    if (m_config.debug()) {
-        page->showInspector(m_config.remoteDebugPort());
+  // Show web-inspector if in debug mode
+  if (m_config.debug()) {
+    page->showInspector(m_config.remoteDebugPort());
+  }
+
+  return page;
+}
+
+QObject *Phantom::createWebServer() {
+  WebServer *server = new WebServer(this);
+  m_servers.append(server);
+  return server;
+}
+
+QObject *Phantom::createFilesystem() {
+  if (!m_filesystem) {
+    m_filesystem = new FileSystem(this);
+  }
+
+  return m_filesystem;
+}
+
+QObject *Phantom::createSystem() {
+  if (!m_system) {
+    m_system = new System(this);
+
+    QStringList systemArgs;
+    systemArgs += m_config.scriptFile();
+    systemArgs += m_config.scriptArgs();
+    m_system->setArgs(systemArgs);
+  }
+
+  return m_system;
+}
+
+QObject *Phantom::_createChildProcess() {
+  if (!m_childprocess) {
+    m_childprocess = new ChildProcess(this);
+  }
+
+  return m_childprocess;
+}
+
+QObject *Phantom::createCallback() { return new Callback(this); }
+
+void Phantom::loadModule(const QString &moduleSource, const QString &filename) {
+  if (m_terminated) {
+    return;
+  }
+
+  QString scriptSource = "(function(require, exports, module) {\n" +
+                         moduleSource + "\n}.call({}," + "require.cache['" +
+                         filename + "']._getRequire()," + "require.cache['" +
+                         filename + "'].exports," + "require.cache['" +
+                         filename + "']" + "));";
+  m_page->mainFrame()->evaluateJavaScript(scriptSource);
+}
+
+bool Phantom::injectJs(const QString &jsFilePath) {
+  QString pre = "";
+  qDebug() << "Phantom - injectJs:" << jsFilePath;
+
+  if (m_terminated) {
+    return false;
+  }
+
+  return Utils::injectJsInFrame(pre + jsFilePath, Encoding::UTF8, libraryPath(),
+                                m_page->mainFrame());
+}
+
+void Phantom::setProxy(const QString &ip, const qint64 &port,
+                       const QString &proxyType, const QString &user,
+                       const QString &password) {
+  qDebug() << "Set " << proxyType << " proxy to: " << ip << ":" << port;
+  if (ip.isEmpty()) {
+    QNetworkProxyFactory::setUseSystemConfiguration(true);
+  } else {
+    QNetworkProxy::ProxyType networkProxyType = QNetworkProxy::HttpProxy;
+
+    if (proxyType == "socks5") {
+      networkProxyType = QNetworkProxy::Socks5Proxy;
     }
-
-    return page;
-}
-
-QObject* Phantom::createWebServer()
-{
-    WebServer* server = new WebServer(this);
-    m_servers.append(server);
-    return server;
-}
-
-QObject* Phantom::createFilesystem()
-{
-    if (!m_filesystem) {
-        m_filesystem = new FileSystem(this);
-    }
-
-    return m_filesystem;
-}
-
-QObject* Phantom::createSystem()
-{
-    if (!m_system) {
-        m_system = new System(this);
-
-        QStringList systemArgs;
-        systemArgs += m_config.scriptFile();
-        systemArgs += m_config.scriptArgs();
-        m_system->setArgs(systemArgs);
-    }
-
-    return m_system;
-}
-
-QObject* Phantom::_createChildProcess()
-{
-    if (!m_childprocess) {
-        m_childprocess = new ChildProcess(this);
-    }
-
-    return m_childprocess;
-}
-
-QObject* Phantom::createCallback()
-{
-    return new Callback(this);
-}
-
-void Phantom::loadModule(const QString& moduleSource, const QString& filename)
-{
-    if (m_terminated) {
-        return;
-    }
-
-    QString scriptSource = "(function(require, exports, module) {\n" + moduleSource + "\n}.call({}," + "require.cache['" + filename + "']._getRequire()," + "require.cache['" + filename + "'].exports," + "require.cache['" + filename + "']" + "));";
-    m_page->mainFrame()->evaluateJavaScript(scriptSource);
-}
-
-bool Phantom::injectJs(const QString& jsFilePath)
-{
-    QString pre = "";
-    qDebug() << "Phantom - injectJs:" << jsFilePath;
-
-    if (m_terminated) {
-        return false;
-    }
-
-    return Utils::injectJsInFrame(pre + jsFilePath, Encoding::UTF8, libraryPath(), m_page->mainFrame());
-}
-
-void Phantom::setProxy(const QString& ip, const qint64& port, const QString& proxyType, const QString& user, const QString& password)
-{
-    qDebug() << "Set " << proxyType << " proxy to: " << ip << ":" << port;
-    if (ip.isEmpty()) {
-        QNetworkProxyFactory::setUseSystemConfiguration(true);
+    // Checking for passed proxy user and password
+    if (!user.isEmpty() && !password.isEmpty()) {
+      QNetworkProxy proxy(networkProxyType, ip, port, user, password);
+      QNetworkProxy::setApplicationProxy(proxy);
     } else {
-        QNetworkProxy::ProxyType networkProxyType = QNetworkProxy::HttpProxy;
-
-        if (proxyType == "socks5") {
-            networkProxyType = QNetworkProxy::Socks5Proxy;
-        }
-        // Checking for passed proxy user and password
-        if (!user.isEmpty() && !password.isEmpty()) {
-            QNetworkProxy proxy(networkProxyType, ip, port, user, password);
-            QNetworkProxy::setApplicationProxy(proxy);
-        } else {
-            QNetworkProxy proxy(networkProxyType, ip, port);
-            QNetworkProxy::setApplicationProxy(proxy);
-        }
+      QNetworkProxy proxy(networkProxyType, ip, port);
+      QNetworkProxy::setApplicationProxy(proxy);
     }
+  }
 }
 
-QString Phantom::proxy()
-{
-    QNetworkProxy proxy = QNetworkProxy::applicationProxy();
-    if (proxy.hostName().isEmpty()) {
-        return QString();
-    }
-    return proxy.hostName() + ":" + QString::number(proxy.port());
+QString Phantom::proxy() {
+  QNetworkProxy proxy = QNetworkProxy::applicationProxy();
+  if (proxy.hostName().isEmpty()) {
+    return QString();
+  }
+  return proxy.hostName() + ":" + QString::number(proxy.port());
 }
 
-int Phantom::remoteDebugPort() const
-{
-    return m_config.remoteDebugPort();
-}
+int Phantom::remoteDebugPort() const { return m_config.remoteDebugPort(); }
 
-void Phantom::exit(int code)
-{
-    if (m_config.debug()) {
-        Terminal::instance()->cout("Phantom::exit() called but not quitting in debug mode.");
-    } else {
-        doExit(code);
-    }
-}
-
-void Phantom::debugExit(int code)
-{
+void Phantom::exit(int code) {
+  if (m_config.debug()) {
+    Terminal::instance()->cout(
+        "Phantom::exit() called but not quitting in debug mode.");
+  } else {
     doExit(code);
+  }
 }
 
-QString Phantom::resolveRelativeUrl(QString url, QString base)
-{
-    QUrl u = QUrl::fromEncoded(url.toLatin1());
-    QUrl b = QUrl::fromEncoded(base.toLatin1());
+void Phantom::debugExit(int code) { doExit(code); }
 
-    return b.resolved(u).toEncoded();
+QString Phantom::resolveRelativeUrl(QString url, QString base) {
+  QUrl u = QUrl::fromEncoded(url.toLatin1());
+  QUrl b = QUrl::fromEncoded(base.toLatin1());
+
+  return b.resolved(u).toEncoded();
 }
 
-QString Phantom::fullyDecodeUrl(QString url)
-{
-    return QUrl::fromEncoded(url.toLatin1()).toDisplayString();
+QString Phantom::fullyDecodeUrl(QString url) {
+  return QUrl::fromEncoded(url.toLatin1()).toDisplayString();
 }
 
 // private slots:
-void Phantom::printConsoleMessage(const QString& message)
-{
-    Terminal::instance()->cout(message);
+void Phantom::printConsoleMessage(const QString &message) {
+  Terminal::instance()->cout(message);
 }
 
-void Phantom::onInitialized()
-{
-    // Add 'phantom' object to the global scope
-    m_page->mainFrame()->addToJavaScriptWindowObject("phantom", this);
+void Phantom::onInitialized() {
+  // Add 'phantom' object to the global scope
+  m_page->mainFrame()->addToJavaScriptWindowObject("phantom", this);
 
-    // Bootstrap the PhantomJS scope
-    m_page->mainFrame()->evaluateJavaScript(
-        Utils::readResourceFileUtf8(":/bootstrap.js"));
+  // Bootstrap the PhantomJS scope
+  m_page->mainFrame()->evaluateJavaScript(
+      Utils::readResourceFileUtf8(":/bootstrap.js"));
 }
 
-bool Phantom::setCookies(const QVariantList& cookies)
-{
-    // Delete all the cookies from the CookieJar
-    m_defaultCookieJar->clearCookies();
-    // Add a new set of cookies
-    return m_defaultCookieJar->addCookiesFromMap(cookies);
+bool Phantom::setCookies(const QVariantList &cookies) {
+  // Delete all the cookies from the CookieJar
+  m_defaultCookieJar->clearCookies();
+  // Add a new set of cookies
+  return m_defaultCookieJar->addCookiesFromMap(cookies);
 }
 
-QVariantList Phantom::cookies() const
-{
-    // Return all the Cookies in the CookieJar, as a list of Maps (aka JSON in JS space)
-    return m_defaultCookieJar->cookiesToMap();
+QVariantList Phantom::cookies() const {
+  // Return all the Cookies in the CookieJar, as a list of Maps (aka JSON in JS
+  // space)
+  return m_defaultCookieJar->cookiesToMap();
 }
 
-bool Phantom::addCookie(const QVariantMap& cookie)
-{
-    return m_defaultCookieJar->addCookieFromMap(cookie);
+bool Phantom::addCookie(const QVariantMap &cookie) {
+  return m_defaultCookieJar->addCookieFromMap(cookie);
 }
 
-bool Phantom::deleteCookie(const QString& cookieName)
-{
-    if (!cookieName.isEmpty()) {
-        return m_defaultCookieJar->deleteCookie(cookieName);
-    }
-    return false;
+bool Phantom::deleteCookie(const QString &cookieName) {
+  if (!cookieName.isEmpty()) {
+    return m_defaultCookieJar->deleteCookie(cookieName);
+  }
+  return false;
 }
 
-void Phantom::clearCookies()
-{
-    m_defaultCookieJar->clearCookies();
-}
+void Phantom::clearCookies() { m_defaultCookieJar->clearCookies(); }
 
 // private:
-void Phantom::doExit(int code)
-{
-    emit aboutToExit(code);
-    m_terminated = true;
-    m_returnValue = code;
+void Phantom::doExit(int code) {
+  emit aboutToExit(code);
+  m_terminated = true;
+  m_returnValue = code;
 
-    // Iterate in reverse order so the first page is the last one scheduled for deletion.
-    // The first page is the root object, which will be invalidated when it is deleted.
-    // This causes an assertion to go off in BridgeJSC.cpp Instance::createRuntimeObject.
-    QListIterator<QPointer<WebPage>> i(m_pages);
-    i.toBack();
-    while (i.hasPrevious()) {
-        const QPointer<WebPage> page = i.previous();
+  // Iterate in reverse order so the first page is the last one scheduled for
+  // deletion. The first page is the root object, which will be invalidated when
+  // it is deleted. This causes an assertion to go off in BridgeJSC.cpp
+  // Instance::createRuntimeObject.
+  QListIterator<QPointer<WebPage>> i(m_pages);
+  i.toBack();
+  while (i.hasPrevious()) {
+    const QPointer<WebPage> page = i.previous();
 
-        if (!page) {
-            continue;
-        }
-
-        // stop processing of JavaScript code by loading a blank page
-        page->mainFrame()->setUrl(QUrl(QStringLiteral("about:blank")));
-        // delay deletion into the event loop, direct deletion can trigger crashes
-        page->deleteLater();
+    if (!page) {
+      continue;
     }
-    m_pages.clear();
-    m_page = 0;
-    QApplication::instance()->exit(code);
+
+    // stop processing of JavaScript code by loading a blank page
+    page->mainFrame()->setUrl(QUrl(QStringLiteral("about:blank")));
+    // delay deletion into the event loop, direct deletion can trigger crashes
+    page->deleteLater();
+  }
+  m_pages.clear();
+  m_page = 0;
+  QApplication::instance()->exit(code);
 }

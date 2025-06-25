@@ -34,29 +34,23 @@
 #include <QString>
 #include <QVariantMap>
 
-static Env* env_instance = Q_NULLPTR;
+static Env *env_instance = Q_NULLPTR;
 
-Env* Env::instance()
-{
-    if (!env_instance) {
-        env_instance = new Env();
-    }
+Env *Env::instance() {
+  if (!env_instance) {
+    env_instance = new Env();
+  }
 
-    return env_instance;
+  return env_instance;
 }
 
-Env::Env()
-    : QObject(QCoreApplication::instance())
-{
-    const QProcessEnvironment& env = QProcessEnvironment::systemEnvironment();
-    foreach (const QString& key, env.keys()) {
-        m_map[key] = env.value(key);
-    }
+Env::Env() : QObject(QCoreApplication::instance()) {
+  const QProcessEnvironment &env = QProcessEnvironment::systemEnvironment();
+  foreach (const QString &key, env.keys()) {
+    m_map[key] = env.value(key);
+  }
 }
 
 // public:
 
-QVariantMap Env::asVariantMap() const
-{
-    return m_map;
-}
+QVariantMap Env::asVariantMap() const { return m_map; }

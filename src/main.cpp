@@ -41,81 +41,80 @@
 #include <exception>
 #include <stdio.h>
 
-static int inner_main(int argc, char** argv)
-{
+static int inner_main(int argc, char **argv) {
 #ifdef Q_OS_LINUX
-    // override default Qt platform plugin
-    qputenv("QT_QPA_PLATFORM", "offscreen");
+  // override default Qt platform plugin
+  qputenv("QT_QPA_PLATFORM", "offscreen");
 #endif
 
-    QApplication app(argc, argv);
+  QApplication app(argc, argv);
 
-    app.setWindowIcon(QIcon(":/phantomjs-icon.png"));
-    app.setApplicationName("PhantomJS");
-    app.setOrganizationName("Ofi Labs");
-    app.setOrganizationDomain("www.ofilabs.com");
-    app.setApplicationVersion(PHANTOMJS_VERSION_STRING);
+  app.setWindowIcon(QIcon(":/phantomjs-icon.png"));
+  app.setApplicationName("PhantomJS");
+  app.setOrganizationName("Ofi Labs");
+  app.setOrganizationDomain("www.ofilabs.com");
+  app.setApplicationVersion(PHANTOMJS_VERSION_STRING);
 
-    // Registering an alternative Message Handler
-    qInstallMessageHandler(Utils::messageHandler);
+  // Registering an alternative Message Handler
+  qInstallMessageHandler(Utils::messageHandler);
 
 #if defined(Q_OS_LINUX)
-    if (QSslSocket::supportsSsl()) {
-        // Don't perform on-demand loading of root certificates on Linux
-        QSslSocket::addDefaultCaCertificates(QSslConfiguration::systemCaCertificates());
-    }
+  if (QSslSocket::supportsSsl()) {
+    // Don't perform on-demand loading of root certificates on Linux
+    QSslSocket::addDefaultCaCertificates(
+        QSslConfiguration::systemCaCertificates());
+  }
 #endif
 
-    // Get the Phantom singleton
-    Phantom* phantom = Phantom::instance();
+  // Get the Phantom singleton
+  Phantom *phantom = Phantom::instance();
 
-    // Start script execution
-    if (phantom->execute()) {
-        app.exec();
-    }
+  // Start script execution
+  if (phantom->execute()) {
+    app.exec();
+  }
 
-    // End script execution: delete the phantom singleton and set
-    // execution return value
-    int retVal = phantom->returnValue();
-    delete phantom;
+  // End script execution: delete the phantom singleton and set
+  // execution return value
+  int retVal = phantom->returnValue();
+  delete phantom;
 
 #ifndef QT_NO_DEBUG
-    // Clear all cached data before exiting, so it is not detected as
-    // leaked.
-    QWebSettings::clearMemoryCaches();
+  // Clear all cached data before exiting, so it is not detected as
+  // leaked.
+  QWebSettings::clearMemoryCaches();
 #endif
 
-    return retVal;
+  return retVal;
 }
 
-int main(int argc, char** argv)
-{
-    try {
-        init_crash_handler();
-        return inner_main(argc, argv);
+int main(int argc, char **argv) {
+  try {
+    init_crash_handler();
+    return inner_main(argc, argv);
 
-        // These last-ditch exception handlers write to the C stderr
-        // because who knows what kind of state Qt is in.  And they avoid
-        // using fprintf because _that_ might be in bad shape too.
-        // (I would drop all the way down to write() but then I'd have to
-        // write the code again for Windows.)
-        //
-        // print_crash_message includes a call to fflush(stderr).
-    } catch (std::bad_alloc) {
-        fputs("Memory exhausted.\n", stderr);
-        fflush(stderr);
-        return 1;
+    // These last-ditch exception handlers write to the C stderr
+    // because who knows what kind of state Qt is in.  And they avoid
+    // using fprintf because _that_ might be in bad shape too.
+    // (I would drop all the way down to write() but then I'd have to
+    // write the code again for Windows.)
+    //
+    // print_crash_message includes a call to fflush(stderr).
+  } catch (std::bad_alloc) {
+    fputs("Memory exhausted.\n", stderr);
+    fflush(stderr);
+    return 1;
 
-    } catch (std::exception& e) {
-        fputs("Uncaught C++ exception: ", stderr);
-        fputs(e.what(), stderr);
-        putc('\n', stderr);
-        print_crash_message();
-        return 1;
+  } catch (std::exception &e) {
+    fputs("Uncaught C++ exception: ", stderr);
+    fputs(e.what(), stderr);
+    putc('\n', stderr);
+    print_crash_message();
+    return 1;
 
-    } catch (...) {
-        fputs("Uncaught nonstandard exception.\n", stderr);
-        print_crash_message();
-        return 1;
-    }
+  } catch (...) {
+    fputs("Uncaught nonstandard exception.\n", stderr);
+    print_crash_message();
+    return 1;
+  }
 }
