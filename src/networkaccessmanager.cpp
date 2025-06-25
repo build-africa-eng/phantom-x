@@ -38,7 +38,6 @@
 #include <QSslCipher>
 #include <QSslKey>
 #include <QSslSocket>
-
 #include "config.h"
 #include "cookiejar.h"
 #include "networkaccessmanager.h"
