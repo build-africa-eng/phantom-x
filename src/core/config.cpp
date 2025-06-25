@@ -36,8 +36,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument> // Added for JSON parsing
-#include <QJsonObject>   // Added for JSON parsing
-#include <QJsonArray>    // Added for JSON parsing
+#include <QJsonObject> // Added for JSON parsing
+#include <QJsonArray> // Added for JSON parsing
 #include <QNetworkProxy>
 #include <QNetworkProxyFactory>
 #include <QUrl> // Required for QUrl::fromUserInput
@@ -55,89 +55,88 @@
 #include <iostream>
 
 static const struct QCommandLineConfigEntry flags[] = { { QCommandLine::Option, '\0', "cookies-file",
-                                                           "Sets the file name to store the persistent cookies",
-                                                           QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "config", "Specifies JSON-formatted configuration file", QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "debug", "Prints additional warning and debug message: 'true' or 'false' (default)",
+                                                            "Sets the file name to store the persistent cookies",
                                                             QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "disk-cache", "Enables disk cache: 'true' or 'false' (default)",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "disk-cache-path", "Specifies the location for the disk cache",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "ignore-ssl-errors",
-                                                            "Ignores SSL errors (expired/self-signed certificate errors): 'true' or "
-                                                            "'false' (default)",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "load-images", "Loads all inlined images: 'true' (default) or 'false'",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "local-url-access", "Allows use of 'file:///' URLs: 'true' (default) or 'false'",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "local-storage-path", "Specifies the location for local storage",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "local-storage-quota", "Sets the maximum size of the local storage (in KB)",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "offline-storage-path", "Specifies the location for offline storage",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "offline-storage-quota", "Sets the maximum size of the offline storage (in KB)",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "local-to-remote-url-access",
-                                                            "Allows local content to access remote URL: 'true' or 'false' (default)", QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "max-disk-cache-size", "Limits the size of the disk cache (in KB)",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "output-encoding", "Sets the encoding for the terminal output, default is 'utf8'",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "remote-debugger-port",
-                                                            "Starts the script in a debug harness and listens on the specified port", QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "remote-debugger-autorun",
-                                                            "Runs the script in the debugger immediately: 'true' or 'false' (default)", QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "proxy", "Sets the proxy server, e.g. '--proxy=http://proxy.company.com:8080'",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "proxy-auth",
-                                                            "Provides authentication information for the proxy, e.g. "
-                                                            "''-proxy-auth=username:password'",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "proxy-type",
-                                                            "Specifies the proxy type, 'http' (default), 'none' (disable completely), "
-                                                            "or 'socks5'",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "script-encoding",
-                                                            "Sets the encoding used for the starting script, default is 'utf8'", QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "script-language", "Sets the script language instead of detecting it: 'javascript'",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "web-security", "Enables web security, 'true' (default) or 'false'",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "ssl-protocol",
-                                                            "Selects a specific SSL protocol version to offer. Values (case "
-                                                            "insensitive): TLSv1.2, TLSv1.1, TLSv1.0, TLSv1 (same as v1.0), SSLv3, or "
-                                                            "ANY. Default is to offer all that Qt thinks are secure (SSLv3 and up). "
-                                                            "Not all values may be supported, depending on the system OpenSSL "
-                                                            "library.",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "ssl-ciphers",
-                                                            "Sets supported TLS/SSL ciphers. Argument is a colon-separated list of "
-                                                            "OpenSSL cipher names (macros like ALL, kRSA, etc. may not be used). "
-                                                            "Default matches modern browsers.",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "ssl-certificates-path",
-                                                            "Sets the location for custom CA certificates (if none set, uses "
-                                                            "environment variable SSL_CERT_DIR. If none set too, uses system default)",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "ssl-client-certificate-file", "Sets the location of a client certificate",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "ssl-client-key-file", "Sets the location of a clients' private key",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Option, '\0', "ssl-client-key-passphrase", "Sets the passphrase for the clients' private key",
-                                                            QCommandLine::Optional },
-                                                          { QCommandLine::Param, '\0', "script", "Script",
-                                                            QCommandLine::Flags(QCommandLine::Optional | QCommandLine::ParameterFence) },
-                                                          { QCommandLine::Param, '\0', "argument", "Script argument", QCommandLine::OptionalMultiple },
-                                                          { QCommandLine::Switch, 'h', "help", "Shows this message and quits", QCommandLine::Optional },
-                                                          { QCommandLine::Switch, 'v', "version", "Prints out PhantomJS version", QCommandLine::Optional },
-                                                          QCOMMANDLINE_CONFIG_ENTRY_END };
+    { QCommandLine::Option, '\0', "config", "Specifies JSON-formatted configuration file", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "debug", "Prints additional warning and debug message: 'true' or 'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "disk-cache", "Enables disk cache: 'true' or 'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "disk-cache-path", "Specifies the location for the disk cache",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ignore-ssl-errors",
+        "Ignores SSL errors (expired/self-signed certificate errors): 'true' or "
+        "'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "load-images", "Loads all inlined images: 'true' (default) or 'false'",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "local-url-access", "Allows use of 'file:///' URLs: 'true' (default) or 'false'",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "local-storage-path", "Specifies the location for local storage",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "local-storage-quota", "Sets the maximum size of the local storage (in KB)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "offline-storage-path", "Specifies the location for offline storage",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "offline-storage-quota", "Sets the maximum size of the offline storage (in KB)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "local-to-remote-url-access",
+        "Allows local content to access remote URL: 'true' or 'false' (default)", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "max-disk-cache-size", "Limits the size of the disk cache (in KB)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "output-encoding", "Sets the encoding for the terminal output, default is 'utf8'",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "remote-debugger-port",
+        "Starts the script in a debug harness and listens on the specified port", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "remote-debugger-autorun",
+        "Runs the script in the debugger immediately: 'true' or 'false' (default)", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "proxy", "Sets the proxy server, e.g. '--proxy=http://proxy.company.com:8080'",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "proxy-auth",
+        "Provides authentication information for the proxy, e.g. "
+        "''-proxy-auth=username:password'",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "proxy-type",
+        "Specifies the proxy type, 'http' (default), 'none' (disable completely), "
+        "or 'socks5'",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "script-encoding",
+        "Sets the encoding used for the starting script, default is 'utf8'", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "script-language", "Sets the script language instead of detecting it: 'javascript'",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "web-security", "Enables web security, 'true' (default) or 'false'",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-protocol",
+        "Selects a specific SSL protocol version to offer. Values (case "
+        "insensitive): TLSv1.2, TLSv1.1, TLSv1.0, TLSv1 (same as v1.0), SSLv3, or "
+        "ANY. Default is to offer all that Qt thinks are secure (SSLv3 and up). "
+        "Not all values may be supported, depending on the system OpenSSL "
+        "library.",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-ciphers",
+        "Sets supported TLS/SSL ciphers. Argument is a colon-separated list of "
+        "OpenSSL cipher names (macros like ALL, kRSA, etc. may not be used). "
+        "Default matches modern browsers.",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-certificates-path",
+        "Sets the location for custom CA certificates (if none set, uses "
+        "environment variable SSL_CERT_DIR. If none set too, uses system default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-client-certificate-file", "Sets the location of a client certificate",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-client-key-file", "Sets the location of a clients' private key",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-client-key-passphrase", "Sets the passphrase for the clients' private key",
+        QCommandLine::Optional },
+    { QCommandLine::Param, '\0', "script", "Script",
+        QCommandLine::Flags(QCommandLine::Optional | QCommandLine::ParameterFence) },
+    { QCommandLine::Param, '\0', "argument", "Script argument", QCommandLine::OptionalMultiple },
+    { QCommandLine::Switch, 'h', "help", "Shows this message and quits", QCommandLine::Optional },
+    { QCommandLine::Switch, 'v', "version", "Prints out PhantomJS version", QCommandLine::Optional },
+    QCOMMANDLINE_CONFIG_ENTRY_END };
 
 Config::Config(QObject* parent)
-    : QObject(parent)
-{
+    : QObject(parent) {
     m_cmdLine = new QCommandLine(this);
 
     // We will handle --help and --version ourselves in phantom.cpp
@@ -147,8 +146,7 @@ Config::Config(QObject* parent)
     resetToDefaults();
 }
 
-void Config::init(const QStringList* const args)
-{
+void Config::init(const QStringList* const args) {
     resetToDefaults();
 
     QByteArray envSslCertDir = qgetenv("SSL_CERT_DIR");
@@ -159,13 +157,12 @@ void Config::init(const QStringList* const args)
     processArgs(*args);
 }
 
-void Config::processArgs(const QStringList& args)
-{
+void Config::processArgs(const QStringList& args) {
     connect(m_cmdLine, SIGNAL(switchFound(const QString&)), this, SLOT(handleSwitch(const QString&)));
     connect(m_cmdLine, SIGNAL(optionFound(const QString&, const QVariant&)), this,
-            SLOT(handleOption(const QString&, const QVariant&)));
+        SLOT(handleOption(const QString&, const QVariant&)));
     connect(m_cmdLine, SIGNAL(paramFound(const QString&, const QVariant&)), this,
-            SLOT(handleParam(const QString&, const QVariant&)));
+        SLOT(handleParam(const QString&, const QVariant&)));
     connect(m_cmdLine, SIGNAL(parseError(const QString&)), this, SLOT(handleError(const QString&)));
 
     m_cmdLine->setArguments(args);
@@ -173,8 +170,7 @@ void Config::processArgs(const QStringList& args)
     m_cmdLine->parse();
 }
 
-void Config::loadJsonFile(const QString& filePath)
-{
+void Config::loadJsonFile(const QString& filePath) {
     QFile f(filePath);
 
     // Check file exists and is readable
@@ -192,7 +188,8 @@ void Config::loadJsonFile(const QString& filePath)
     QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        Terminal::instance()->cerr("Config file JSON parse error at offset " + QString::number(parseError.offset) + ": " + parseError.errorString());
+        Terminal::instance()->cerr("Config file JSON parse error at offset " + QString::number(parseError.offset) + ": "
+            + parseError.errorString());
         return;
     }
 
@@ -213,11 +210,11 @@ void Config::loadJsonFile(const QString& filePath)
         if (this->setProperty(key.toLocal8Bit().constData(), value)) {
             // Property set successfully
         } else {
-            Terminal::instance()->cerr("Warning: Unknown or invalid configuration property '" + key + "' in config file.");
+            Terminal::instance()->cerr(
+                "Warning: Unknown or invalid configuration property '" + key + "' in config file.");
         }
     }
 }
-
 
 QString Config::helpText() const { return m_cmdLine->help(); }
 
@@ -231,31 +228,27 @@ void Config::setCookiesFile(const QString& value) { m_cookiesFile = value; }
 
 QString Config::offlineStoragePath() const { return m_offlineStoragePath; }
 
-void Config::setOfflineStoragePath(const QString& value)
-{
+void Config::setOfflineStoragePath(const QString& value) {
     QDir dir(value);
     m_offlineStoragePath = dir.absolutePath();
 }
 
 int Config::offlineStorageDefaultQuota() const { return m_offlineStorageDefaultQuota; }
 
-void Config::setOfflineStorageDefaultQuota(int offlineStorageDefaultQuota)
-{
+void Config::setOfflineStorageDefaultQuota(int offlineStorageDefaultQuota) {
     m_offlineStorageDefaultQuota = offlineStorageDefaultQuota * 1024;
 }
 
 QString Config::localStoragePath() const { return m_localStoragePath; }
 
-void Config::setLocalStoragePath(const QString& value)
-{
+void Config::setLocalStoragePath(const QString& value) {
     QDir dir(value);
     m_localStoragePath = dir.absolutePath();
 }
 
 int Config::localStorageDefaultQuota() const { return m_localStorageDefaultQuota; }
 
-void Config::setLocalStorageDefaultQuota(int localStorageDefaultQuota)
-{
+void Config::setLocalStorageDefaultQuota(int localStorageDefaultQuota) {
     m_localStorageDefaultQuota = localStorageDefaultQuota * 1024;
 }
 
@@ -269,8 +262,7 @@ void Config::setMaxDiskCacheSize(int maxDiskCacheSize) { m_maxDiskCacheSize = ma
 
 QString Config::diskCachePath() const { return m_diskCachePath; }
 
-void Config::setDiskCachePath(const QString& value)
-{
+void Config::setDiskCachePath(const QString& value) {
     QDir dir(value);
     m_diskCachePath = dir.absolutePath();
 }
@@ -289,8 +281,7 @@ void Config::setLocalToRemoteUrlAccessEnabled(const bool value) { m_localToRemot
 
 QString Config::outputEncoding() const { return m_outputEncoding; }
 
-void Config::setOutputEncoding(const QString& value)
-{
+void Config::setOutputEncoding(const QString& value) {
     if (value.isEmpty()) {
         return;
     }
@@ -304,8 +295,7 @@ void Config::setProxyType(const QString& value) { m_proxyType = value; }
 
 QString Config::proxy() const { return m_proxyHost + ":" + QString::number(m_proxyPort); }
 
-void Config::setProxy(const QString& value)
-{
+void Config::setProxy(const QString& value) {
     QUrl proxyUrl = QUrl::fromUserInput(value);
 
     if (proxyUrl.isValid()) {
@@ -314,8 +304,7 @@ void Config::setProxy(const QString& value)
     }
 }
 
-void Config::setProxyAuth(const QString& value)
-{
+void Config::setProxyAuth(const QString& value) {
     QString proxyUser = value;
     QString proxyPass = "";
 
@@ -340,8 +329,7 @@ int Config::proxyPort() const { return m_proxyPort; }
 
 QStringList Config::scriptArgs() const { return m_scriptArgs; }
 
-void Config::setScriptArgs(const QStringList& value)
-{
+void Config::setScriptArgs(const QStringList& value) {
     m_scriptArgs.clear();
 
     QStringListIterator it(value);
@@ -352,8 +340,7 @@ void Config::setScriptArgs(const QStringList& value)
 
 QString Config::scriptEncoding() const { return m_scriptEncoding; }
 
-void Config::setScriptEncoding(const QString& value)
-{
+void Config::setScriptEncoding(const QString& value) {
     if (value.isEmpty()) {
         return;
     }
@@ -398,8 +385,7 @@ void Config::setJavascriptCanCloseWindows(const bool value) { m_javascriptCanClo
 bool Config::javascriptCanCloseWindows() const { return m_javascriptCanCloseWindows; }
 
 // private:
-void Config::resetToDefaults()
-{
+void Config::resetToDefaults() {
     m_autoLoadImages = true;
     m_cookiesFile = QString();
     m_offlineStoragePath = QString();
@@ -660,4 +646,3 @@ QByteArray Config::sslClientKeyPassphrase() const { return m_sslClientKeyPassphr
 void Config::setSslClientKeyPassphrase(const QByteArray& sslClientKeyPassphrase) {
     m_sslClientKeyPassphrase = sslClientKeyPassphrase;
 }
-
