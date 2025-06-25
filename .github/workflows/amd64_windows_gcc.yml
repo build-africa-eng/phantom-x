@@ -3,28 +3,52 @@ name: amd64_windows_gcc
 on: [push, pull_request]
 
 jobs:
-
   amd64_windows_gcc:
     runs-on: windows-2019
     env:
       CC: gcc
     steps:
     - uses: actions/checkout@v2
-    - run: echo "::add-path::C:\\msys64\\usr\\bin"
-    - run: pacman --version
-    - run: pacman -Sy
-    - run: pacman --noconfirm -S pacman-mirrors
-    - name: 'Install requirements'
-      run: pacman --noconfirm -S mingw64/mingw-w64-x86_64-toolchain mingw64/mingw-w64-x86_64-cmake mingw64/mingw-w64-x86_64-qtwebkit mingw64/mingw-w64-x86_64-python2
-    - run: echo "::add-path::C:\\msys64\\mingw64\\bin"
-    - run: g++ --version && cmake --version && qmake --version
-      name: 'Display tools version'
-    - run: bash ./configure
-      name: './configure'
+
+    - name: Add MSYS2 to PATH (GitHub Actions compatible way)
+      shell: bash
+      run: echo "C:\\msys64\\usr\\bin" >> $GITHUB_PATH
+
+    - name: Update pacman and mirrors
+      run: |
+        pacman --noconfirm -Sy
+        pacman --noconfirm -S pacman-mirrors
+
+    - name: Install requirements (Python 3)
+      run: pacman --noconfirm -S \
+        mingw64/mingw-w64-x86_64-toolchain \
+        mingw64/mingw-w64-x86_64-cmake \
+        mingw64/mingw-w64-x86_64-qtwebkit \
+        mingw64/mingw-w64-x86_64-python
+
+    - name: Add mingw64 to PATH
+      shell: bash
+      run: echo "C:\\msys64\\mingw64\\bin" >> $GITHUB_PATH
+
+    - name: Display tools version
+      run: |
+        g++ --version
+        cmake --version
+        qmake --version
+        python --version
+
+    - name: ./configure
+      run: bash ./configure
       env:
         CMAKE_CMD: 'cmake -G "MinGW Makefiles"'
-    - run: mingw32-make
-      name: 'make'
-    - run: file ./bin/phantomjs
-    - run: ldd ./bin/phantomjs
-    - run: ./bin/phantomjs --version
+
+    - name: make
+      run: mingw32-make
+
+    - name: Inspect built binary
+      run: |
+        file ./bin/phantomjs || echo "file check failed"
+        ldd ./bin/phantomjs || echo "ldd check failed"
+
+    - name: Run PhantomJS
+      run: ./bin/phantomjs --version || echo "phantomjs execution failed"
