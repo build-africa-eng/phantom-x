@@ -21,12 +21,14 @@ jobs:
         pacman -S --noconfirm pacman-mirrors
 
     - name: Install GCC toolchain and dependencies
+      shell: bash
       run: |
        pacman --noconfirm -S \
        mingw64/mingw-w64-x86_64-toolchain \
        mingw64/mingw-w64-x86_64-cmake \
        mingw64/mingw-w64-x86_64-qtwebkit \
        mingw64/mingw-w64-x86_64-python
+
 
 
     - name: Add mingw32 to PATH
