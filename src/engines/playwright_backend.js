@@ -827,12 +827,37 @@ function setupPageEventListeners(p, pageId) {
     });
 
     p.on('pageerror', error => {
-        // Playwright pageerror does not provide sourceID or lineNumber directly for all errors
+        // Attempt to parse the stack trace string from Playwright into a structured format
+        // Playwright's error.stack is typically like:
+        // Error: My error message
+        //     at myFunction (file:///path/to/script.js:10:5)
+        //     at anotherFunction (<anonymous>:20:1)
+        const stackLines = error.stack ? error.stack.split('\n').slice(1) : []; // Remove the first line (error message)
+        const structuredStack = stackLines.map(line => {
+            // Regex to parse a stack line: "    at <functionName> (<url>:<lineNumber>:<columnNumber>)"
+            // Group 1: functionName (optional)
+            // Group 2: url (file path or <anonymous>)
+            // Group 3: lineNumber
+            // Group 4: columnNumber (optional)
+            const match = line.match(/^\s*at (?:(.+?) )?\(?(?:(.+?):(\d+):(\d+))?\)?$/);
+            if (match) {
+                return {
+                    url: match[2] || '', // file path or <anonymous>
+                    lineNumber: parseInt(match[3], 10) || 0,
+                    columnNumber: parseInt(match[4], 10) || 0,
+                    functionName: match[1] || '' // The function name
+                };
+            }
+            return { url: '', lineNumber: 0, columnNumber: 0, functionName: line.trim() }; // Fallback for unparseable lines
+        }).filter(item => item.url || item.functionName); // Filter out any lines that yielded no useful info
+
         sendMessage('event', 'javaScriptError', {
             message: error.message,
-            lineNumber: error.stack ? (error.stack.split('\n')[1] ? error.stack.split('\n')[1].match(/:(\d+):\d+\)?$/)?.[1] || 0 : 0) : 0, // Crude line number from stack
-            sourceID: p.url(),
-            stack: error.stack
+            // The lineNumber and sourceID below might be redundant if `structuredStack` is fully used on the JS side.
+            // But keeping them for compatibility with existing C++ handler signature which expects these directly.
+            lineNumber: structuredStack.length > 0 ? structuredStack[0].lineNumber : 0,
+            sourceID: structuredStack.length > 0 ? structuredStack[0].url : '',
+            stack: JSON.stringify(structuredStack) // Send the structured stack as a JSON string
         });
     });
 
