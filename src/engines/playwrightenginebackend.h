@@ -818,12 +818,13 @@ void PlaywrightEngineBackend::exposeQObject(const QString& name, QObject* object
     for (int i = meta->methodOffset(); i < meta->methodCount(); ++i) {
         QMetaMethod method = meta->method(i);
         // Only expose invokable slots
-        if (method.methodType() == QMetaMethod::Slot && method.accessSpecifier() == QMetaMethod::Public && method.tag() != QMetaMethod::Signal) {
+        if (method.methodType() == QMetaMethod::Slot && method.accessSpecifier() == QMetaMethod::Public
+            && method.tag() != QMetaMethod::Signal) {
             // Get method name without arguments
             QString methodName = QString::fromLatin1(method.methodSignature()).split('(').first();
             // Exclude internal PhantomJS methods (starting with '_') if not meant for user JS
             if (!methodName.startsWith('_')) {
-                 invokableMethodNames.append(methodName);
+                invokableMethodNames.append(methodName);
             }
         }
     }
@@ -841,7 +842,6 @@ void PlaywrightEngineBackend::exposeQObject(const QString& name, QObject* object
             }
         }
     }
-
 
     QVariantMap params;
     params["objectName"] = name;
