@@ -19,27 +19,30 @@ PlaywrightEngineBackend::PlaywrightEngineBackend(QObject* parent)
     : IEngineBackend(parent)
     , m_playwrightProcess(new QProcess(this))
     , m_nextMessageSize(0)
-    , m_navigationLocked(false)
-{
+    , m_navigationLocked(false) {
     qDebug() << "PlaywrightEngineBackend: Initializing...";
 
     // Connect QProcess signals
-    connect(m_playwrightProcess, &QProcess::readyReadStandardOutput, this, &PlaywrightEngineBackend::handleReadyReadStandardOutput);
-    connect(m_playwrightProcess, &QProcess::readyReadStandardError, this, &PlaywrightEngineBackend::handleReadyReadStandardError);
+    connect(m_playwrightProcess, &QProcess::readyReadStandardOutput, this,
+        &PlaywrightEngineBackend::handleReadyReadStandardOutput);
+    connect(m_playwrightProcess, &QProcess::readyReadStandardError, this,
+        &PlaywrightEngineBackend::handleReadyReadStandardError);
     connect(m_playwrightProcess, &QProcess::started, this, &PlaywrightEngineBackend::handleProcessStarted);
-    connect(m_playwrightProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &PlaywrightEngineBackend::handleProcessFinished);
+    connect(m_playwrightProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
+        &PlaywrightEngineBackend::handleProcessFinished);
     connect(m_playwrightProcess, &QProcess::errorOccurred, this, &PlaywrightEngineBackend::handleProcessErrorOccurred);
 
     // Path to your Node.js script that will run Playwright
     // This script will need to be created alongside this C++ code.
     // For now, assume it's in the same directory as the executable, or a 'nodejs' subfolder.
-    QString nodeScriptPath = QCoreApplication::applicationDirPath() + "/playwright_backend.js"; // You'll create this file
+    QString nodeScriptPath
+        = QCoreApplication::applicationDirPath() + "/playwright_backend.js"; // You'll create this file
 
     // Check if nodejs is available
     QString nodeExecutable = "node";
-    #ifdef Q_OS_WIN
+#ifdef Q_OS_WIN
     nodeExecutable = "node.exe";
-    #endif
+#endif
 
     // Arguments for the Node.js process
     QStringList args;
@@ -70,8 +73,7 @@ PlaywrightEngineBackend::PlaywrightEngineBackend(QObject* parent)
     m_windowName = ""; // Not yet known
 }
 
-PlaywrightEngineBackend::~PlaywrightEngineBackend()
-{
+PlaywrightEngineBackend::~PlaywrightEngineBackend() {
     qDebug() << "PlaywrightEngineBackend: Shutting down...";
     if (m_playwrightProcess->state() != QProcess::NotRunning) {
         // Send a shutdown command to the Node.js process
@@ -87,8 +89,7 @@ PlaywrightEngineBackend::~PlaywrightEngineBackend()
 // --- IPC Communication Helpers ---
 
 // Send an asynchronous command to the Node.js process
-void PlaywrightEngineBackend::sendAsyncCommand(const QString& command, const QVariantMap& params)
-{
+void PlaywrightEngineBackend::sendAsyncCommand(const QString& command, const QVariantMap& params) {
     QJsonObject message;
     message["type"] = "command";
     message["command"] = command;
@@ -106,8 +107,7 @@ void PlaywrightEngineBackend::sendAsyncCommand(const QString& command, const QVa
 }
 
 // Send a synchronous command and wait for a response
-QVariant PlaywrightEngineBackend::sendSyncCommand(const QString& command, const QVariantMap& params)
-{
+QVariant PlaywrightEngineBackend::sendSyncCommand(const QString& command, const QVariantMap& params) {
     // This is a placeholder for a more robust synchronous IPC.
     // In a real async environment, blocking here is generally bad for UI threads.
     // For now, it demonstrates the concept of waiting for a response.
@@ -126,7 +126,7 @@ QVariant PlaywrightEngineBackend::sendSyncCommand(const QString& command, const 
     QByteArray messageWithLength = QByteArray::number(jsonData.size()) + "\n" + jsonData;
 
     QMutexLocker locker(&m_commandMutex); // Lock for pending commands
-    m_pendingCommands.enqueue({commandId, QVariant()}); // Enqueue a placeholder for this command
+    m_pendingCommands.enqueue({ commandId, QVariant() }); // Enqueue a placeholder for this command
 
     qDebug() << "PlaywrightEngineBackend: Sending sync command:" << messageWithLength.left(100) << "...";
     m_playwrightProcess->write(messageWithLength);
@@ -144,8 +144,7 @@ QVariant PlaywrightEngineBackend::sendSyncCommand(const QString& command, const 
 }
 
 // Process incoming JSON messages from Node.js stdout
-void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
-{
+void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message) {
     QString type = message["type"].toString();
     QString command = message["command"].toString();
 
@@ -187,10 +186,8 @@ void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
         } else if (command == "javaScriptConsoleMessage") {
             emit javaScriptConsoleMessageSent(eventData.value("message").toString());
         } else if (command == "javaScriptError") {
-            emit javaScriptErrorSent(eventData.value("message").toString(),
-                                     eventData.value("lineNumber").toInt(),
-                                     eventData.value("sourceID").toString(),
-                                     eventData.value("stack").toString());
+            emit javaScriptErrorSent(eventData.value("message").toString(), eventData.value("lineNumber").toInt(),
+                eventData.value("sourceID").toString(), eventData.value("stack").toString());
         } else if (command == "pageCreated") {
             // This is complex: need to instantiate a new PlaywrightEngineBackend for the new page
             // and pass it to WebPage::handleEnginePageCreated.
@@ -207,11 +204,9 @@ void PlaywrightEngineBackend::processIncomingMessage(const QJsonObject& message)
     }
 }
 
-
 // --- QProcess Signal Handlers ---
 
-void PlaywrightEngineBackend::handleReadyReadStandardOutput()
-{
+void PlaywrightEngineBackend::handleReadyReadStandardOutput() {
     m_outputBuffer.append(m_playwrightProcess->readAllStandardOutput());
 
     // Process messages from the buffer
@@ -264,38 +259,34 @@ void PlaywrightEngineBackend::handleReadyReadStandardOutput()
     }
 }
 
-void PlaywrightEngineBackend::handleReadyReadStandardError()
-{
+void PlaywrightEngineBackend::handleReadyReadStandardError() {
     QByteArray errorOutput = m_playwrightProcess->readAllStandardError();
     // Forward error output to console for debugging Node.js process
     Terminal::instance()->cerr("[Playwright-ERR]: " + QString::fromUtf8(errorOutput).trimmed());
 }
 
-void PlaywrightEngineBackend::handleProcessStarted()
-{
+void PlaywrightEngineBackend::handleProcessStarted() {
     qDebug() << "PlaywrightEngineBackend: Node.js process started successfully.";
     // Send initial handshake or setup command to Node.js backend
     sendAsyncCommand("init"); // Tell Node.js backend to initialize browser
 }
 
-void PlaywrightEngineBackend::handleProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
-{
-    qWarning() << "PlaywrightEngineBackend: Node.js process finished with exit code" << exitCode
-               << "and status" << (exitStatus == QProcess::NormalExit ? "Normal" : "Crash");
+void PlaywrightEngineBackend::handleProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
+    qWarning() << "PlaywrightEngineBackend: Node.js process finished with exit code" << exitCode << "and status"
+               << (exitStatus == QProcess::NormalExit ? "Normal" : "Crash");
     // Emit a loadFinished(false) or similar to any pending pages
     // Also, potentially recreate the process if it's an unexpected crash
 }
 
-void PlaywrightEngineBackend::handleProcessErrorOccurred(QProcess::ProcessError error)
-{
+void PlaywrightEngineBackend::handleProcessErrorOccurred(QProcess::ProcessError error) {
     qCritical() << "PlaywrightEngineBackend: QProcess error occurred:" << error;
     // Handle specific errors (e.g., QProcess::FailedToStart)
 }
 
 // --- IEngineBackend Method Implementations (Minimal Stubs) ---
 
-void PlaywrightEngineBackend::load(const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body)
-{
+void PlaywrightEngineBackend::load(
+    const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body) {
     qDebug() << "PlaywrightEngineBackend: load called for URL:" << request.url().toDisplayString()
              << "Operation:" << operation << "Body size:" << body.size();
     QVariantMap params;
@@ -313,8 +304,7 @@ void PlaywrightEngineBackend::load(const QNetworkRequest& request, QNetworkAcces
     emit loadFinished(true, request.url()); // Will be replaced by actual Playwright events
 }
 
-void PlaywrightEngineBackend::setHtml(const QString& html, const QUrl& baseUrl)
-{
+void PlaywrightEngineBackend::setHtml(const QString& html, const QUrl& baseUrl) {
     qDebug() << "PlaywrightEngineBackend: setHtml called. Base URL:" << baseUrl.toDisplayString();
     m_currentHtml = html; // Cache locally
     m_currentUrl = baseUrl; // Update current URL
@@ -378,7 +368,7 @@ QString PlaywrightEngineBackend::toHtml() const {
 QString PlaywrightEngineBackend::title() const {
     qDebug() << "PlaywrightEngineBackend: title called (stub).";
     if (m_currentTitle == "Loading...") {
-         return sendSyncCommand("getTitle").toString(); // Fetch actual title
+        return sendSyncCommand("getTitle").toString(); // Fetch actual title
     }
     return m_currentTitle;
 }
@@ -401,16 +391,15 @@ QString PlaywrightEngineBackend::toPlainText() const {
     return m_currentPlainText;
 }
 
-QVariant PlaywrightEngineBackend::evaluateJavaScript(const QString& script)
-{
+QVariant PlaywrightEngineBackend::evaluateJavaScript(const QString& script) {
     qDebug() << "PlaywrightEngineBackend: evaluateJavaScript called (stub). Script length:" << script.length();
     QVariantMap params;
     params["script"] = script;
     return sendSyncCommand("evaluateJs", params);
 }
 
-bool PlaywrightEngineBackend::injectJavaScriptFile(const QString& filePath, const QString& encoding, const QString& libraryPath, bool inPhantomScope)
-{
+bool PlaywrightEngineBackend::injectJavaScriptFile(
+    const QString& filePath, const QString& encoding, const QString& libraryPath, bool inPhantomScope) {
     qDebug() << "PlaywrightEngineBackend: injectJavaScriptFile called (stub). Path:" << filePath;
     QVariantMap params;
     params["filePath"] = filePath;
@@ -420,16 +409,15 @@ bool PlaywrightEngineBackend::injectJavaScriptFile(const QString& filePath, cons
     return sendSyncCommand("injectJsFile", params).toBool();
 }
 
-void PlaywrightEngineBackend::appendScriptElement(const QString& scriptUrl)
-{
+void PlaywrightEngineBackend::appendScriptElement(const QString& scriptUrl) {
     qDebug() << "PlaywrightEngineBackend: appendScriptElement called (stub). URL:" << scriptUrl;
     QVariantMap params;
     params["scriptUrl"] = scriptUrl;
     sendAsyncCommand("appendScriptElement", params);
 }
 
-void PlaywrightEngineBackend::sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton, const QVariant& modifierArg)
-{
+void PlaywrightEngineBackend::sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2,
+    const QString& mouseButton, const QVariant& modifierArg) {
     qDebug() << "PlaywrightEngineBackend: sendEvent called (stub). Type:" << type;
     QVariantMap params;
     params["type"] = type;
@@ -440,8 +428,7 @@ void PlaywrightEngineBackend::sendEvent(const QString& type, const QVariant& arg
     sendAsyncCommand("sendEvent", params);
 }
 
-void PlaywrightEngineBackend::uploadFile(const QString& selector, const QStringList& fileNames)
-{
+void PlaywrightEngineBackend::uploadFile(const QString& selector, const QStringList& fileNames) {
     qDebug() << "PlaywrightEngineBackend: uploadFile called (stub). Selector:" << selector;
     QVariantMap params;
     params["selector"] = selector;
@@ -449,8 +436,7 @@ void PlaywrightEngineBackend::uploadFile(const QString& selector, const QStringL
     sendAsyncCommand("uploadFile", params);
 }
 
-void PlaywrightEngineBackend::applySettings(const QVariantMap& settings)
-{
+void PlaywrightEngineBackend::applySettings(const QVariantMap& settings) {
     qDebug() << "PlaywrightEngineBackend: applySettings called (stub). Settings count:" << settings.count();
     QVariantMap params;
     for (auto it = settings.constBegin(); it != settings.constEnd(); ++it) {
@@ -458,7 +444,8 @@ void PlaywrightEngineBackend::applySettings(const QVariantMap& settings)
     }
     sendAsyncCommand("applySettings", params);
     // Update cached settings if applicable
-    if (settings.contains("userAgent")) setUserAgent(settings["userAgent"].toString());
+    if (settings.contains("userAgent"))
+        setUserAgent(settings["userAgent"].toString());
     // ... update other cached properties based on settings
 }
 
@@ -607,9 +594,7 @@ int PlaywrightEngineBackend::localStorageQuota() const {
     return sendSyncCommand("getLocalStorageQuota").toInt();
 }
 
-
-QImage PlaywrightEngineBackend::renderImage(const QRect& clipRect, bool onlyViewport, const QPoint& scrollPosition)
-{
+QImage PlaywrightEngineBackend::renderImage(const QRect& clipRect, bool onlyViewport, const QPoint& scrollPosition) {
     qDebug() << "PlaywrightEngineBackend: renderImage called (stub).";
     // For a stub, return a blank image or a dummy one
     QSize renderSize = onlyViewport ? m_viewportSize : QSize(800, 600); // Dummy size
@@ -625,17 +610,15 @@ QImage PlaywrightEngineBackend::renderImage(const QRect& clipRect, bool onlyView
 
     // Real implementation would send a command:
     // QVariantMap params;
-    // params["clipRect"] = QVariantMap{{"x", clipRect.x()}, {"y", clipRect.y()}, {"width", clipRect.width()}, {"height", clipRect.height()}};
-    // params["onlyViewport"] = onlyViewport;
-    // params["scrollPosition"] = QVariantMap{{"x", scrollPosition.x()}, {"y", scrollPosition.y()}};
-    // QByteArray base64Image = sendSyncCommand("renderImage", params).toByteArray();
-    // QImage image;
+    // params["clipRect"] = QVariantMap{{"x", clipRect.x()}, {"y", clipRect.y()}, {"width", clipRect.width()},
+    // {"height", clipRect.height()}}; params["onlyViewport"] = onlyViewport; params["scrollPosition"] =
+    // QVariantMap{{"x", scrollPosition.x()}, {"y", scrollPosition.y()}}; QByteArray base64Image =
+    // sendSyncCommand("renderImage", params).toByteArray(); QImage image;
     // image.loadFromData(QByteArray::fromBase64(base64Image));
     // return image;
 }
 
-QByteArray PlaywrightEngineBackend::renderPdf(const QVariantMap& paperSize, const QRect& clipRect)
-{
+QByteArray PlaywrightEngineBackend::renderPdf(const QVariantMap& paperSize, const QRect& clipRect) {
     qDebug() << "PlaywrightEngineBackend: renderPdf called (stub).";
     // For a stub, return dummy PDF data
     QByteArray pdfData;
@@ -651,13 +634,11 @@ QByteArray PlaywrightEngineBackend::renderPdf(const QVariantMap& paperSize, cons
     // Real implementation would send a command:
     // QVariantMap params;
     // params["paperSize"] = paperSize;
-    // params["clipRect"] = QVariantMap{{"x", clipRect.x()}, {"y", clipRect.y()}, {"width", clipRect.width()}, {"height", clipRect.height()}};
-    // return sendSyncCommand("renderPdf", params).toByteArray();
+    // params["clipRect"] = QVariantMap{{"x", clipRect.x()}, {"y", clipRect.y()}, {"width", clipRect.width()},
+    // {"height", clipRect.height()}}; return sendSyncCommand("renderPdf", params).toByteArray();
 }
 
-
-void PlaywrightEngineBackend::setCookieJar(CookieJar* cookieJar)
-{
+void PlaywrightEngineBackend::setCookieJar(CookieJar* cookieJar) {
     qDebug() << "PlaywrightEngineBackend: setCookieJar called (stub).";
     // This method is primarily to inform the backend about the cookie jar
     // The Playwright backend will need to read cookies from this jar and synchronize.
@@ -667,56 +648,51 @@ void PlaywrightEngineBackend::setCookieJar(CookieJar* cookieJar)
     }
 }
 
-QVariantList PlaywrightEngineBackend::cookies() const
-{
+QVariantList PlaywrightEngineBackend::cookies() const {
     qDebug() << "PlaywrightEngineBackend: cookies called (stub).";
     return sendSyncCommand("getCookies").toList();
 }
 
-bool PlaywrightEngineBackend::setCookies(const QVariantList& cookies)
-{
+bool PlaywrightEngineBackend::setCookies(const QVariantList& cookies) {
     qDebug() << "PlaywrightEngineBackend: setCookies called (stub).";
     QVariantMap params;
     params["cookies"] = cookies;
     return sendSyncCommand("setCookies", params).toBool();
 }
 
-bool PlaywrightEngineBackend::addCookie(const QVariantMap& cookie)
-{
+bool PlaywrightEngineBackend::addCookie(const QVariantMap& cookie) {
     qDebug() << "PlaywrightEngineBackend: addCookie called (stub).";
     QVariantMap params;
     params["cookie"] = cookie;
     return sendSyncCommand("addCookie", params).toBool();
 }
 
-bool PlaywrightEngineBackend::deleteCookie(const QString& cookieName)
-{
+bool PlaywrightEngineBackend::deleteCookie(const QString& cookieName) {
     qDebug() << "PlaywrightEngineBackend: deleteCookie called (stub).";
     QVariantMap params;
     params["cookieName"] = cookieName;
     return sendSyncCommand("deleteCookie", params).toBool();
 }
 
-bool PlaywrightEngineBackend::clearCookies()
-{
+bool PlaywrightEngineBackend::clearCookies() {
     qDebug() << "PlaywrightEngineBackend: clearCookies called (stub).";
     return sendSyncCommand("clearCookies").toBool();
 }
 
-void PlaywrightEngineBackend::setNetworkProxy(const QNetworkProxy& proxy)
-{
+void PlaywrightEngineBackend::setNetworkProxy(const QNetworkProxy& proxy) {
     qDebug() << "PlaywrightEngineBackend: setNetworkProxy called (stub). Host:" << proxy.hostName();
     QVariantMap params;
     params["host"] = proxy.hostName();
     params["port"] = proxy.port();
-    params["type"] = proxy.type() == QNetworkProxy::HttpProxy ? "http" : (proxy.type() == QNetworkProxy::Socks5Proxy ? "socks5" : "none");
+    params["type"] = proxy.type() == QNetworkProxy::HttpProxy
+        ? "http"
+        : (proxy.type() == QNetworkProxy::Socks5Proxy ? "socks5" : "none");
     params["user"] = proxy.user();
     params["password"] = proxy.password();
     sendAsyncCommand("setNetworkProxy", params);
 }
 
-void PlaywrightEngineBackend::clearMemoryCache()
-{
+void PlaywrightEngineBackend::clearMemoryCache() {
     qDebug() << "PlaywrightEngineBackend: clearMemoryCache called (stub).";
     sendAsyncCommand("clearMemoryCache");
 }
@@ -764,7 +740,8 @@ void PlaywrightEngineBackend::setSslClientKeyFile(const QString& path) {
 }
 
 void PlaywrightEngineBackend::setSslClientKeyPassphrase(const QByteArray& passphrase) {
-    qDebug() << "PlaywrightEngineBackend: setSslClientKeyPassphrase called (stub). Passphrase length:" << passphrase.length();
+    qDebug() << "PlaywrightEngineBackend: setSslClientKeyPassphrase called (stub). Passphrase length:"
+             << passphrase.length();
     QVariantMap params;
     params["passphrase"] = QString::fromUtf8(passphrase.toBase64());
     sendAsyncCommand("setSslClientKeyPassphrase", params);
@@ -834,7 +811,8 @@ void PlaywrightEngineBackend::switchToFocusedFrame() {
 }
 
 void PlaywrightEngineBackend::exposeQObject(const QString& name, QObject* object) {
-    qDebug() << "PlaywrightEngineBackend: exposeQObject called (stub). Name:" << name << "Object:" << object->objectName();
+    qDebug() << "PlaywrightEngineBackend: exposeQObject called (stub). Name:" << name
+             << "Object:" << object->objectName();
     // This is a complex part. For Playwright, this will involve serializing
     // the QObject's meta-information (methods, properties) and sending to Node.js,
     // which then uses Playwright's `page.exposeFunction` or similar.
