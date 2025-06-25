@@ -63,7 +63,7 @@ extern bool printDebugMessages;
  * @return True if successful, false otherwise.
  */
 bool injectJsInFrame(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
-                     WebPage* targetPage, const bool startingScript = false);
+    WebPage* targetPage, const bool startingScript = false);
 
 /**
  * @brief Loads JavaScript for debugging purposes, optionally wrapping it in a __run() function.
@@ -75,7 +75,7 @@ bool injectJsInFrame(const QString& jsFilePath, const Encoding& jsFileEnc, const
  * @return True if successful, false otherwise.
  */
 bool loadJSForDebug(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
-                    WebPage* targetPage, const bool autorun = false);
+    WebPage* targetPage, const bool autorun = false);
 
 /**
  * @brief Reads content from a Qt resource file.
