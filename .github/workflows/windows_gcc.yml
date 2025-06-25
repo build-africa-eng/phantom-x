@@ -7,19 +7,21 @@ jobs:
     runs-on: windows-2019
     env:
       CC: gcc
+      CXX: g++
+
     steps:
     - uses: actions/checkout@v2
 
-    - name: Add MSYS2 to PATH (GitHub Actions compatible way)
+    - name: Add MSYS2 to PATH
       shell: bash
       run: echo "C:\\msys64\\usr\\bin" >> $GITHUB_PATH
 
     - name: Update pacman and mirrors
       run: |
-        pacman --noconfirm -Sy
-        pacman --noconfirm -S pacman-mirrors
+        pacman -Sy --noconfirm
+        pacman -S --noconfirm pacman-mirrors
 
-    - name: Install requirements (Python 3)
+    - name: Install GCC toolchain and dependencies (Python 3)
       run: pacman --noconfirm -S \
         mingw64/mingw-w64-x86_64-toolchain \
         mingw64/mingw-w64-x86_64-cmake \
@@ -30,19 +32,19 @@ jobs:
       shell: bash
       run: echo "C:\\msys64\\mingw64\\bin" >> $GITHUB_PATH
 
-    - name: Display tools version
+    - name: Display toolchain versions
       run: |
         g++ --version
         cmake --version
         qmake --version
         python --version
 
-    - name: ./configure
+    - name: Configure
       run: bash ./configure
       env:
         CMAKE_CMD: 'cmake -G "MinGW Makefiles"'
 
-    - name: make
+    - name: Build
       run: mingw32-make
 
     - name: Inspect built binary
