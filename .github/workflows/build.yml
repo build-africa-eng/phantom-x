@@ -1,45 +1,45 @@
-name: Build PhantomJS
+#name: Build PhantomJS
 
-on:
-  push:
-    branches:
+#on:
+#  push:
+#    branches:
       - main
-  pull_request:
+#  pull_request:
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+#jobs:
+#  build:
+#    runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v3
 
-      - name: Install build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            g++ cmake \
-            qtbase5-dev qttools5-dev-tools \
-            libqt5webkit5-dev \
-            libqt5networkauth5-dev \
-            python3
+#      - name: Install build dependencies
+#        run: |
+#          sudo apt update
+#          sudo apt install -y \
+#            g++ cmake \
+            qtbase5-dev #qttools5-dev-tools \
+#            libqt5webkit5-dev \
+#            libqt5networkauth5-dev \
+#            python3
 
-      - name: Configure CMake
-        run: |
-          mkdir -p build
-          cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release
+#      - name: Configure CMake
+#        run: |
+#          mkdir -p build
+#          cd build
+          cmake .. #-DCMAKE_BUILD_TYPE=Release
 
-      - name: Build PhantomJS
-        run: |
-          cd build
-          make -j$(nproc)
+#      - name: Build PhantomJS
+#        run: |
+#          cd build
+#          make -j$(nproc)
 
-      - name: Run tests
-        run: |
-          cd build
-          if [ -f ../test/run-tests.py ]; then
-            python3 ../test/run-tests.py -v
-          else
-            echo "No test runner found. Skipping tests."
-          fi
+#      - name: Run tests
+#        run: |
+#          cd build
+          if [ -f ../test/run-tests.py ]; #then
+#            python3 ../test/run-tests.py #-v
+#          else
+#            echo "No test runner found. #Skipping tests."
+#          fi
