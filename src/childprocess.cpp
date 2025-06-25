@@ -47,13 +47,7 @@ ChildProcessContext::~ChildProcessContext() { }
 // public:
 
 qint64 ChildProcessContext::pid() const {
-    Q_PID pid = m_proc.pid();
-
-#if !defined(Q_OS_WIN) && !defined(Q_OS_WINCE)
-    return pid;
-#else
-    return pid->dwProcessId;
-#endif
+    return m_proc.processId();
 }
 
 void ChildProcessContext::kill(const QString& signal) {
