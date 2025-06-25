@@ -73,15 +73,15 @@
 #endif
 
 // Ensure we have at least head and body.
+#define BLANK_HTML "<html><head></head><body></body></html>"
 #define CALLBACKS_OBJECT_NAME "_phantom"
 #define INPAGE_CALL_NAME "window.callPhantom"
 #define CALLBACKS_OBJECT_INJECTION \
     INPAGE_CALL_NAME " = function() { return window." CALLBACKS_OBJECT_NAME ".call.call(_phantom, Array.prototype.slice.call(arguments, 0)); };"
 #define CALLBACKS_OBJECT_PRESENT \
     "typeof(window." CALLBACKS_OBJECT_NAME ") !== \"undefined\";"
-
-constexpr auto STDOUT_FILENAME = "/dev/stdout";
-constexpr auto STDERR_FILENAME = "/dev/stderr";
+#define STDOUT_FILENAME "/dev/stdout"
+#define STDERR_FILENAME "/dev/stderr"
 
 /**
   * @class CustomPage
@@ -678,7 +678,7 @@ void WebPage::setNavigationLocked(bool lock)
     m_navigationLocked = lock;
 }
 
-bool WebPage::navigationLocked() const
+bool WebPage::navigationLocked()
 {
     return m_navigationLocked;
 }
