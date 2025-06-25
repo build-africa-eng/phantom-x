@@ -73,12 +73,12 @@
 #endif
 
 // Ensure we have at least head and body.
-constexpr auto BLANK_HTML = "<html><head></head><body></body></html>";
-constexpr auto CALLBACKS_OBJECT_NAME = "_phantom";
-constexpr auto INPAGE_CALL_NAME = "window.callPhantom";
-constexpr auto CALLBACKS_OBJECT_INJECTION =
-    INPAGE_CALL_NAME " = function() { return window." CALLBACKS_OBJECT_NAME ".call.call(_phantom, Array.prototype.slice.call(arguments, 0)); };";
-constexpr auto CALLBACKS_OBJECT_PRESENT = "typeof(window." CALLBACKS_OBJECT_NAME ") !== \"undefined\";";
+#define CALLBACKS_OBJECT_NAME "_phantom"
+#define INPAGE_CALL_NAME "window.callPhantom"
+#define CALLBACKS_OBJECT_INJECTION \
+    INPAGE_CALL_NAME " = function() { return window." CALLBACKS_OBJECT_NAME ".call.call(_phantom, Array.prototype.slice.call(arguments, 0)); };"
+#define CALLBACKS_OBJECT_PRESENT \
+    "typeof(window." CALLBACKS_OBJECT_NAME ") !== \"undefined\";"
 
 constexpr auto STDOUT_FILENAME = "/dev/stdout";
 constexpr auto STDERR_FILENAME = "/dev/stderr";
