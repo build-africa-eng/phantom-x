@@ -33,7 +33,7 @@
 #include <QDesktopServices>
 #include <QNetworkDiskCache>
 #include <QNetworkRequest>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QSslCertificate>
 #include <QSslCipher>
 #include <QSslKey>
@@ -193,7 +193,7 @@ void NetworkAccessManager::prepareSslConfiguration(const Config* config) {
     // That overload isn't available on QSslConfiguration.
     if (!config->sslCiphers().isEmpty()) {
         QList<QSslCipher> cipherList;
-        foreach (const QString& cipherName, config->sslCiphers().split(QLatin1String(":"), QString::SkipEmptyParts)) {
+        foreach (const QString& cipherName, config->sslCiphers().split(QLatin1String(":"), Qt::SkipEmptyParts)) {
             QSslCipher cipher(cipherName);
             if (!cipher.isNull()) {
                 cipherList << cipher;
@@ -206,14 +206,14 @@ void NetworkAccessManager::prepareSslConfiguration(const Config* config) {
 
     if (!config->sslCertificatesPath().isEmpty()) {
         QList<QSslCertificate> caCerts
-            = QSslCertificate::fromPath(config->sslCertificatesPath(), QSsl::Pem, QRegExp::Wildcard);
+            = QSslCertificate::fromPath(config->sslCertificatesPath(), QSsl::Pem, QRegularExpression::WildcardOption);
 
         m_sslConfiguration.setCaCertificates(caCerts);
     }
 
     if (!config->sslClientCertificateFile().isEmpty()) {
         QList<QSslCertificate> clientCerts
-            = QSslCertificate::fromPath(config->sslClientCertificateFile(), QSsl::Pem, QRegExp::Wildcard);
+            = QSslCertificate::fromPath(config->sslClientCertificateFile(), QSsl::Pem, QRegularExpression::WildcardOption);
 
         if (!clientCerts.isEmpty()) {
             QSslCertificate clientCert = clientCerts.first();
