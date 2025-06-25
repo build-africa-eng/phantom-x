@@ -44,7 +44,7 @@
 #include <QNetworkAccessManager> // Needed for QNetworkAccessManager::Operation
 
 #include "ienginebackend.h" // The new abstraction
-#include "cookiejar.h"      // Still needed for public API
+#include "cookiejar.h" // Still needed for public API
 // NetworkAccessManager is now largely handled internally by IEngineBackend
 // #include "networkaccessmanager.h" // Removed as direct usage moves to backend
 
@@ -57,8 +57,7 @@ class QPdfWriter; // Used in renderPdf, which is now delegated to IEngineBackend
 // IEngineBackend implementation and WebPage's handling of IEngineBackend signals.
 // class CustomPage : public QWebPage { ... };
 
-class WebPage : public QObject
-{
+class WebPage : public QObject {
     Q_OBJECT
 
 public:
@@ -157,8 +156,8 @@ public:
     QString focusedFrameName() const; // Delegates to IEngineBackend
 
     // --- Event Handling ---
-    void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2,
-                   const QString& mouseButton, const QVariant& modifierArg); // Delegates to IEngineBackend
+    void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton,
+        const QVariant& modifierArg); // Delegates to IEngineBackend
     void _uploadFile(const QString& selector, const QStringList& fileNames); // Delegates to IEngineBackend
     void stopJavaScript(); // Delegates to IEngineBackend (via m_shouldInterruptJs)
     void clearMemoryCache(); // Delegates to IEngineBackend
@@ -180,7 +179,8 @@ public:
     // they will be called by handleEngine... methods.
     QString filePicker(const QString& oldFile); // Will use m_filePickerCallback
     bool javaScriptConfirm(const QString& msg); // Will use m_jsConfirmCallback
-    bool javaScriptPrompt(const QString& msg, const QString& defaultValue, QString* result); // Will use m_jsPromptCallback
+    bool javaScriptPrompt(
+        const QString& msg, const QString& defaultValue, QString* result); // Will use m_jsPromptCallback
     void javascriptInterrupt(); // Will use m_jsInterruptCallback
 
 signals:
@@ -217,14 +217,16 @@ private slots:
     void handleEngineUrlChanged(const QUrl& url);
     void handleEngineTitleChanged(const QString& title);
     void handleEngineContentsChanged();
-    void handleEngineNavigationRequested(const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
+    void handleEngineNavigationRequested(
+        const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
     void handleEnginePageCreated(IEngineBackend* newPageBackend); // New backend for the new page
     void handleEngineWindowCloseRequested();
 
     // --- Internal Slots for JS Dialogs (triggered by IEngineBackend) ---
     void handleEngineJavaScriptAlertSent(const QString& msg);
     void handleEngineJavaScriptConfirmRequested(const QString& message, bool* result);
-    void handleEngineJavaScriptPromptRequested(const QString& message, const QString& defaultValue, QString* result, bool* accepted);
+    void handleEngineJavaScriptPromptRequested(
+        const QString& message, const QString& defaultValue, QString* result, bool* accepted);
     void handleEngineJavascriptInterruptRequested(bool* interrupt);
     void handleEngineFilePickerRequested(const QString& oldFile, QString* chosenFile, bool* handled);
 
@@ -291,7 +293,6 @@ private:
     QString m_cachedFrameName;
     QString m_cachedFocusedFrameName;
 
-
     QVariantMap m_paperSize; // Still stored locally for PDF rendering options
     QString m_libraryPath; // Still stored locally for script injection paths
 
@@ -303,7 +304,8 @@ private:
     QString footer(int page, int numPages); // These will depend on a C++ callback model
     void _appendScriptElement(const QString& scriptUrl); // Helper for JS injection (delegates to backend)
     // No longer CustomPage member, so defined here or made static/free func
-    // bool renderPdf(QPdfWriter& pdfWriter); // This logic moves to IEngineBackend or is part of a general image processing utility
+    // bool renderPdf(QPdfWriter& pdfWriter); // This logic moves to IEngineBackend or is part of a general image
+    // processing utility
 };
 
 #endif // WEBPAGE_H
