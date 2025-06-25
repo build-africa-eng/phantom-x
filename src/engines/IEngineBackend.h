@@ -16,12 +16,12 @@ class QNetworkProxy; // For proxy settings
  * All concrete engine implementations (e.g., QtWebKit, Playwright, etc.) must implement
  * the pure virtual functions defined here.
  */
-class IEngineBackend : public QObject
-{
+class IEngineBackend : public QObject {
     Q_OBJECT
 
 public:
-    explicit IEngineBackend(QObject* parent = nullptr) : QObject(parent) {}
+    explicit IEngineBackend(QObject* parent = nullptr)
+        : QObject(parent) { }
     virtual ~IEngineBackend() = default;
 
     // --- Core Page Navigation and Loading ---
@@ -31,7 +31,8 @@ public:
      * @param operation The operation type (e.g., "GET", "POST").
      * @param content The content for POST requests.
      */
-    virtual void load(const QUrl& url, const QString& operation = "GET", const QVariantMap& content = QVariantMap()) = 0;
+    virtual void load(const QUrl& url, const QString& operation = "GET", const QVariantMap& content = QVariantMap())
+        = 0;
 
     /**
      * @brief Reloads the current page.
@@ -119,7 +120,9 @@ public:
      * @param orientation PDF orientation ("portrait" or "landscape").
      * @param zoomFactor Zoom factor for PDF.
      */
-    virtual bool renderPdf(const QString& filename, const QString& format = "A4", const QString& orientation = "portrait", qreal zoomFactor = 1.0) = 0;
+    virtual bool renderPdf(const QString& filename, const QString& format = "A4",
+        const QString& orientation = "portrait", qreal zoomFactor = 1.0)
+        = 0;
 
     // --- Cookie Management ---
     /**
