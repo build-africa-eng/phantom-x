@@ -5,29 +5,30 @@ on: [push, pull_request]
 jobs:
   format:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install clang-format
-      run: sudo apt install -y clang-format
+      - name: Install clang-format
+        run: sudo apt update && sudo apt install -y clang-format
 
-    - name: Run clang-format
-      run: bash ./tools/format-code.sh
+      - name: Run clang-format
+        run: bash ./tools/format-code.sh
 
-    - name: Show diff if formatting changes found
-      run: |
-        if ! git diff --quiet HEAD; then
-          echo "::error::Unformatted changes found. Please run ./tools/format-code.sh locally and commit the result."
-          git --no-pager diff
-          exit 1
-        fi
+      - name: Show diff if formatting changes found
+        run: |
+          if ! git diff --quiet HEAD; then
+            echo "::error::Unformatted changes found. Please run ./tools/format-code.sh locally and commit the result."
+            git --no-pager diff
+            exit 1
+          fi
 
-    # Optional: Auto-commit formatting fixes on CI
-    - name: Auto-commit formatting fixes
-      if: failure()
-      run: |
-        git config --global user.name 'github-actions'
-        git config --global user.email 'actions@github.com'
-        git add -u
-        git commit -m "style: apply formatting via CI"
-        git push || echo "::warning::Auto-push failed (e.g., PR from fork or read-only token)"
+      # Optional: Auto-commit formatting fixes on CI (only works with write tokens on same-repo branches)
+      - name: Auto-commit formatting fixes
+        if: failure()
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'actions@github.com'
+          git add -u
+          git commit -m "style: apply formatting via CI"
+          git push || echo "::warning::Auto-push failed (e.g., PR from fork or read-only token)"
