@@ -47,12 +47,18 @@ const qint64 MAX_REQUEST_POST_BODY_SIZE = 10 * 1000 * 1000;
 
 static const char* toString(QNetworkAccessManager::Operation op) {
     switch (op) {
-    case QNetworkAccessManager::HeadOperation: return "HEAD";
-    case QNetworkAccessManager::GetOperation: return "GET";
-    case QNetworkAccessManager::PutOperation: return "PUT";
-    case QNetworkAccessManager::PostOperation: return "POST";
-    case QNetworkAccessManager::DeleteOperation: return "DELETE";
-    default: return "?";
+    case QNetworkAccessManager::HeadOperation:
+        return "HEAD";
+    case QNetworkAccessManager::GetOperation:
+        return "GET";
+    case QNetworkAccessManager::PutOperation:
+        return "PUT";
+    case QNetworkAccessManager::PostOperation:
+        return "POST";
+    case QNetworkAccessManager::DeleteOperation:
+        return "DELETE";
+    default:
+        return "?";
     }
 }
 
@@ -64,30 +70,38 @@ NoFileAccessReply::NoFileAccessReply(QObject* parent, const QNetworkRequest& req
     qRegisterMetaType<QNetworkReply::NetworkError>();
     QString msg = QCoreApplication::translate("QNetworkReply", "Protocol \"%1\" is unknown").arg(req.url().scheme());
     setError(ProtocolUnknownError, msg);
-    QMetaObject::invokeMethod(this, [this]() {
-        emit error(ProtocolUnknownError);
-        emit finished();
-    }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(
+        this,
+        [this]() {
+            emit error(ProtocolUnknownError);
+            emit finished();
+        },
+        Qt::QueuedConnection);
 }
 
 NoFileAccessReply::~NoFileAccessReply() = default;
-TimeoutTimer::TimeoutTimer(QObject* parent) : QTimer(parent) {}
+TimeoutTimer::TimeoutTimer(QObject* parent)
+    : QTimer(parent) { }
 
 JsNetworkRequest::JsNetworkRequest(QNetworkRequest* request, QObject* parent)
-    : QObject(parent), m_networkRequest(request) {}
+    : QObject(parent)
+    , m_networkRequest(request) { }
 
 void JsNetworkRequest::abort() {
-    if (m_networkRequest) m_networkRequest->setUrl(QUrl());
+    if (m_networkRequest)
+        m_networkRequest->setUrl(QUrl());
 }
 
 bool JsNetworkRequest::setHeader(const QString& name, const QVariant& value) {
-    if (!m_networkRequest) return false;
+    if (!m_networkRequest)
+        return false;
     m_networkRequest->setRawHeader(name.toLatin1(), value.toByteArray());
     return true;
 }
 
 void JsNetworkRequest::changeUrl(const QString& address) {
-    if (m_networkRequest) m_networkRequest->setUrl(QUrl::fromEncoded(address.toLatin1()));
+    if (m_networkRequest)
+        m_networkRequest->setUrl(QUrl::fromEncoded(address.toLatin1()));
 }
 
 struct ssl_protocol_option {
@@ -95,33 +109,26 @@ struct ssl_protocol_option {
     QSsl::SslProtocol proto;
 };
 
-const ssl_protocol_option ssl_protocol_options[] = {
-    {"default", QSsl::SecureProtocols},
-    {"tlsv1.2", QSsl::TlsV1_2},
-    {"tlsv1.1", QSsl::TlsV1_1},
-    {"tlsv1.0", QSsl::TlsV1_0},
-    {"tlsv1", QSsl::TlsV1_0},
-    {"sslv3", QSsl::SslV3},
-    {"any", QSsl::AnyProtocol},
-    {nullptr, QSsl::UnknownProtocol}
-};
+const ssl_protocol_option ssl_protocol_options[] = { { "default", QSsl::SecureProtocols }, { "tlsv1.2", QSsl::TlsV1_2 },
+    { "tlsv1.1", QSsl::TlsV1_1 }, { "tlsv1.0", QSsl::TlsV1_0 }, { "tlsv1", QSsl::TlsV1_0 }, { "sslv3", QSsl::SslV3 },
+    { "any", QSsl::AnyProtocol }, { nullptr, QSsl::UnknownProtocol } };
 
 NetworkAccessManager::NetworkAccessManager(QObject* parent, const Config* config)
-    : QNetworkAccessManager(parent),
-      m_ignoreSslErrors(config->ignoreSslErrors()),
-      m_localUrlAccessEnabled(config->localUrlAccessEnabled()),
-      m_authAttempts(0),
-      m_maxAuthAttempts(3),
-      m_resourceTimeout(0),
-      m_idCounter(0),
-      m_networkDiskCache(nullptr),
-      m_sslConfiguration(QSslConfiguration::defaultConfiguration()) {
+    : QNetworkAccessManager(parent)
+    , m_ignoreSslErrors(config->ignoreSslErrors())
+    , m_localUrlAccessEnabled(config->localUrlAccessEnabled())
+    , m_authAttempts(0)
+    , m_maxAuthAttempts(3)
+    , m_resourceTimeout(0)
+    , m_idCounter(0)
+    , m_networkDiskCache(nullptr)
+    , m_sslConfiguration(QSslConfiguration::defaultConfiguration()) {
 
     if (config->diskCacheEnabled()) {
         m_networkDiskCache = new QNetworkDiskCache(this);
         QString cachePath = config->diskCachePath().isEmpty()
-                            ? QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-                            : config->diskCachePath();
+            ? QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+            : config->diskCachePath();
         m_networkDiskCache->setCacheDirectory(cachePath);
         if (config->maxDiskCacheSize() >= 0) {
             m_networkDiskCache->setMaximumCacheSize(qint64(config->maxDiskCacheSize()) * 1024);
@@ -129,7 +136,8 @@ NetworkAccessManager::NetworkAccessManager(QObject* parent, const Config* config
         setCache(m_networkDiskCache);
     }
 
-    if (QSslSocket::supportsSsl()) prepareSslConfiguration(config);
+    if (QSslSocket::supportsSsl())
+        prepareSslConfiguration(config);
 
     connect(this, &QNetworkAccessManager::authenticationRequired, this, &NetworkAccessManager::provideAuthentication);
     connect(this, &QNetworkAccessManager::finished, this, &NetworkAccessManager::handleFinished);
@@ -137,7 +145,8 @@ NetworkAccessManager::NetworkAccessManager(QObject* parent, const Config* config
 
 void NetworkAccessManager::prepareSslConfiguration(const Config* config) {
     m_sslConfiguration = QSslConfiguration::defaultConfiguration();
-    if (config->ignoreSslErrors()) m_sslConfiguration.setPeerVerifyMode(QSslSocket::VerifyNone);
+    if (config->ignoreSslErrors())
+        m_sslConfiguration.setPeerVerifyMode(QSslSocket::VerifyNone);
 
     bool setProtocol = false;
     for (const auto* proto_opt = ssl_protocol_options; proto_opt->name; ++proto_opt) {
@@ -147,24 +156,29 @@ void NetworkAccessManager::prepareSslConfiguration(const Config* config) {
             break;
         }
     }
-    if (!setProtocol) m_sslConfiguration.setProtocol(QSsl::SecureProtocols);
+    if (!setProtocol)
+        m_sslConfiguration.setProtocol(QSsl::SecureProtocols);
 
     if (!config->sslCiphers().isEmpty()) {
         QList<QSslCipher> cipherList;
         for (const auto& cipherName : config->sslCiphers().split(":", Qt::SkipEmptyParts)) {
             QSslCipher cipher(cipherName);
-            if (!cipher.isNull()) cipherList << cipher;
+            if (!cipher.isNull())
+                cipherList << cipher;
         }
-        if (!cipherList.isEmpty()) m_sslConfiguration.setCiphers(cipherList);
+        if (!cipherList.isEmpty())
+            m_sslConfiguration.setCiphers(cipherList);
     }
 
     if (!config->sslCertificatesPath().isEmpty()) {
-        auto caCerts = QSslCertificate::fromPath(config->sslCertificatesPath(), QSsl::Pem, QRegularExpression::WildcardOption);
+        auto caCerts
+            = QSslCertificate::fromPath(config->sslCertificatesPath(), QSsl::Pem, QRegularExpression::WildcardOption);
         m_sslConfiguration.setCaCertificates(caCerts);
     }
 
     if (!config->sslClientCertificateFile().isEmpty()) {
-        auto clientCerts = QSslCertificate::fromPath(config->sslClientCertificateFile(), QSsl::Pem, QRegularExpression::WildcardOption);
+        auto clientCerts = QSslCertificate::fromPath(
+            config->sslClientCertificateFile(), QSsl::Pem, QRegularExpression::WildcardOption);
         if (!clientCerts.isEmpty()) {
             QSslCertificate clientCert = clientCerts.first();
             auto caCerts = m_sslConfiguration.caCertificates();
@@ -172,12 +186,12 @@ void NetworkAccessManager::prepareSslConfiguration(const Config* config) {
             m_sslConfiguration.setCaCertificates(caCerts);
             m_sslConfiguration.setLocalCertificate(clientCert);
 
-            QString keyFilePath = config->sslClientKeyFile().isEmpty()
-                                ? config->sslClientCertificateFile()
-                                : config->sslClientKeyFile();
+            QString keyFilePath = config->sslClientKeyFile().isEmpty() ? config->sslClientCertificateFile()
+                                                                       : config->sslClientKeyFile();
             QFile keyFile(keyFilePath);
             if (keyFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                QSslKey key(keyFile.readAll(), QSsl::Rsa, QSsl::Pem, QSsl::PrivateKey, config->sslClientKeyPassphrase());
+                QSslKey key(
+                    keyFile.readAll(), QSsl::Rsa, QSsl::Pem, QSsl::PrivateKey, config->sslClientKeyPassphrase());
                 m_sslConfiguration.setPrivateKey(key);
                 keyFile.close();
             }
