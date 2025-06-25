@@ -44,16 +44,16 @@
 #define HISTORY_FILENAME "phantom_repl_history"
 #define REGEXP_NON_COMPLETABLE_CHARS "[^\\w\\s\\.]"
 #define JS_RETURN_POSSIBLE_COMPLETIONS "REPL._getCompletions(%1, \"%2\");"
-#define JS_EVAL_USER_INPUT \
-    "try { " \
-    "REPL._lastEval = eval(\"%1\");" \
-    "console.log(JSON.stringify(REPL._lastEval, REPL._expResStringifyReplacer, '    ')); " \
-    "} catch(e) { " \
-    "if (e instanceof TypeError) { " \
-    "console.error(\"'%1' is a cyclic structure\"); " \
-    "} else { " \
-    "console.error(e.message);" \
-    "}" \
+#define JS_EVAL_USER_INPUT                                                                                             \
+    "try { "                                                                                                           \
+    "REPL._lastEval = eval(\"%1\");"                                                                                   \
+    "console.log(JSON.stringify(REPL._lastEval, REPL._expResStringifyReplacer, '    ')); "                             \
+    "} catch(e) { "                                                                                                    \
+    "if (e instanceof TypeError) { "                                                                                   \
+    "console.error(\"'%1' is a cyclic structure\"); "                                                                  \
+    "} else { "                                                                                                        \
+    "console.error(e.message);"                                                                                        \
+    "}"                                                                                                                \
     "} "
 
 bool REPL::instanceExists() { return REPL::getInstance() != nullptr; }
@@ -66,9 +66,7 @@ REPL* REPL::getInstance(QWebFrame* webframe, Phantom* parent) {
     return singleton;
 }
 
-QString REPL::_getClassName(QObject* obj) const {
-    return QString::fromLatin1(obj->metaObject()->className());
-}
+QString REPL::_getClassName(QObject* obj) const { return QString::fromLatin1(obj->metaObject()->className()); }
 
 QStringList REPL::_enumerateCompletions(QObject* obj) const {
     const QMetaObject* meta = obj->metaObject();
@@ -96,7 +94,10 @@ QStringList REPL::_enumerateCompletions(QObject* obj) const {
 }
 
 REPL::REPL(QWebFrame* webframe, Phantom* parent)
-    : QObject(parent), m_looping(true), m_webframe(webframe), m_parentPhantom(parent) {
+    : QObject(parent)
+    , m_looping(true)
+    , m_webframe(webframe)
+    , m_parentPhantom(parent) {
     m_historyFilepath = QString("%1/%2")
                             .arg(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation), HISTORY_FILENAME)
                             .toLocal8Bit();
@@ -117,16 +118,17 @@ void REPL::offerCompletion(const char* buf, linenoiseCompletions* lc) {
     QString buffer(buf);
     QRegularExpression nonCompletableChars(REGEXP_NON_COMPLETABLE_CHARS);
 
-    if (nonCompletableChars.match(buffer).hasMatch()) return;
+    if (nonCompletableChars.match(buffer).hasMatch())
+        return;
 
     int lastIndexOfDot = buffer.lastIndexOf('.');
     QString toInspect = (lastIndexOfDot > -1) ? buffer.left(lastIndexOfDot) : "window";
     QString toComplete = (lastIndexOfDot > -1) ? buffer.mid(lastIndexOfDot + 1) : buffer;
 
-    QStringList completions = REPL::getInstance()
-                                   ->m_webframe
-                                   ->evaluateJavaScript(QString(JS_RETURN_POSSIBLE_COMPLETIONS).arg(toInspect, toComplete))
-                                   .toStringList();
+    QStringList completions
+        = REPL::getInstance()
+              ->m_webframe->evaluateJavaScript(QString(JS_RETURN_POSSIBLE_COMPLETIONS).arg(toInspect, toComplete))
+              .toStringList();
 
     for (const QString& c : completions) {
         QString suggestion = (lastIndexOfDot > -1) ? QString("%1.%2").arg(toInspect, c) : c;
