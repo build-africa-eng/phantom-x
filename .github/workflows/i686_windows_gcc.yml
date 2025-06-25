@@ -38,7 +38,7 @@ jobs:
         qmake --version
         python --version
 
-    - name: ./configure
+    - name: Configure with CMake
       run: bash ./configure
       env:
         CMAKE_CMD: 'cmake -G "MinGW Makefiles"'
@@ -53,3 +53,8 @@ jobs:
 
     - name: Run PhantomJS
       run: ./bin/phantomjs --version || echo "phantomjs execution failed"
+
+    - name: Run Tests (and always show results)
+      run: |
+        echo "Running test suite..."
+        make check || true  # don't fail the workflow on test failure
