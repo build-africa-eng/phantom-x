@@ -21,12 +21,14 @@ jobs:
         pacman -Sy --noconfirm
         pacman -S --noconfirm pacman-mirrors
 
-    - name: Install Clang toolchain and dependencies
-      run: pacman --noconfirm -S \
-        mingw64/mingw-w64-x86_64-clang \
+    - name: Install GCC toolchain and dependencies
+      run: |
+        pacman --noconfirm -S \
+        mingw64/mingw-w64-x86_64-toolchain \
         mingw64/mingw-w64-x86_64-cmake \
         mingw64/mingw-w64-x86_64-qtwebkit \
         mingw64/mingw-w64-x86_64-python
+
 
     - name: Add mingw64 to PATH
       shell: bash
