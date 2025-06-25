@@ -40,45 +40,29 @@
 #include <QScreen>
 #include <QStandardPaths>
 #include <QNetworkProxyFactory> // Standard Qt class, compatible with Qt5/Qt6
-#include <QNetworkProxy> // Standard Qt class, compatible with Qt5/Qt6
+#include <QNetworkProxy>       // Standard Qt class, compatible with Qt5/Qt6
 
-// Conditional includes for QtWebKit (Qt5) or QtWebEngine (Qt6)
-#if QT_VERSION_MAJOR == 5
-#include <QtWebKitVersion> // Only exists in Qt5 with QtWebKit
-#include <QtWebKitWidgets/QWebPage>
-#include <QtWebKitWidgets/QWebSettings> // Required for QWebSettings
-#elif QT_VERSION_MAJOR == 6
-// For Qt6, you'd typically use QtWebEngineWidgets
-// These modules would replace QtWebKit and related classes.
-// You will need to link against Qt6::WebEngineWidgets and Qt6::WebEngineCore in your build system.
-// #include <QtWebEngineWidgets/QWebEngineView>
-// #include <QtWebEngineWidgets/QWebEnginePage>
-// #include <QtWebEngineCore/QWebEngineSettings> // QWebEngineSettings
-// #include <QtWebEngineCore/QWebEngineCookieStore> // For cookie handling if using QWebEnginePage's cookie store
-
-// This warning will appear if you compile with Qt6, reminding you of the necessary rewrite.
-#warning                                                                                                               \
-    "Qt6 compatibility requires migrating from QtWebKit to QtWebEngine. QWebPage, QWebFrame, and QWebSettings are not available in Qt6. Core web functionality will be broken until WebPage is re-implemented for QtWebEngine."
-#endif
+// NO LONGER NEEDED: QtWebKit includes are removed
+// #if QT_VERSION_MAJOR == 5
+// #include <QtWebKitVersion>
+// #include <QtWebKitWidgets/QWebPage>
+// #include <QtWebKitWidgets/QWebSettings>
+// #elif QT_VERSION_MAJOR == 6
+// #warning "Qt6 compatibility requires migrating from QtWebKit to QtWebEngine. QWebPage, QWebFrame, and QWebSettings are not available in Qt6. Core web functionality will be broken until WebPage is re-implemented for QtWebEngine."
+// #endif
 
 #include "callback.h"
 #include "childprocess.h"
 #include "consts.h"
 #include "cookiejar.h"
-#include "repl.h"
+#include "repl.h" // Will need updates to use WebPage directly
 #include "system.h"
 #include "terminal.h"
-#include "utils.h"
-#include "webpage.h" // This class will need a Qt6 specific implementation (using QWebEnginePage)
+#include "utils.h" // Will need updates to accept WebPage* instead of QWebFrame*
+#include "webpage.h" // This class now uses IEngineBackend
 #include "webserver.h"
 
-// The original check for QTWEBKIT_VERSION is only relevant for Qt5 and QtWebKit.
-// For Qt6, QtWebKit does not exist. We'll remove the #error to allow Qt6 compilation.
-// If you still need to enforce a minimum QtWebKit version for Qt5 builds, you can
-// re-add this inside an #if QT_VERSION_MAJOR == 5 block.
-// #if QTWEBKIT_VERSION < ((5 << 16) | (212 << 8))
-// #error "This version of QtWebKit is not supported. Please use QtWebKit >= 5.212"
-// #endif
+// Removed the QTWEBKIT_VERSION check as QtWebKit is no longer a direct dependency.
 
 static Phantom* phantomInstance = Q_NULLPTR;
 
@@ -89,7 +73,8 @@ Phantom::Phantom(QObject* parent)
     , m_returnValue(0)
     , m_filesystem(0)
     , m_system(0)
-    , m_childprocess(0) {
+    , m_childprocess(0)
+{
     QStringList args = QApplication::arguments();
 
     // Prepare the configuration object based on the command line arguments.
@@ -100,7 +85,8 @@ Phantom::Phantom(QObject* parent)
     Utils::printDebugMessages = m_config.printDebugMessages();
 }
 
-void Phantom::init() {
+void Phantom::init()
+{
     if (m_config.helpFlag()) {
         Terminal::instance()->cout(QString("%1").arg(m_config.helpText()));
         Terminal::instance()->cout("Any of the options that accept boolean values "
@@ -131,30 +117,12 @@ void Phantom::init() {
     m_defaultCookieJar = new CookieJar(m_config.cookiesFile());
 
     // set the default DPI
-    // logicalDotsPerInch() exists in both Qt5 and Qt6 QScreen
-#if QT_VERSION_MAJOR == 5
     m_defaultDpi = qRound(QApplication::primaryScreen()->logicalDotsPerInch());
-#elif QT_VERSION_MAJOR == 6
-    m_defaultDpi = qRound(QApplication::primaryScreen()->logicalDotsPerInch());
-#endif
 
-#if QT_VERSION_MAJOR == 5
-    // QWebSettings is specific to QtWebKit and does not exist in Qt6 (QtWebEngine)
-    QWebSettings::setOfflineWebApplicationCachePath(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
-    if (m_config.offlineStoragePath().isEmpty()) {
-        QWebSettings::setOfflineStoragePath(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
-    } else {
-        QWebSettings::setOfflineStoragePath(m_config.offlineStoragePath());
-    }
-    if (m_config.offlineStorageDefaultQuota() > 0) {
-        QWebSettings::setOfflineStorageDefaultQuota(m_config.offlineStorageDefaultQuota());
-    }
-#elif QT_VERSION_MAJOR == 6
-    // For Qt6 (QtWebEngine), offline storage settings are typically managed differently
-    // via QWebEngineProfile or QWebEngineSettings specific to the QWebEnginePage.
-    // This part requires a rewrite in the WebPage class for Qt6.
-    qWarning() << "Offline web application cache and storage settings are not directly portable to Qt6 WebEngine.";
-#endif
+    // --- REMOVED QWebSettings calls. These are now applied via WebPage::applySettings() ---
+    // QWebSettings::setOfflineWebApplicationCachePath(...)
+    // QWebSettings::setOfflineStoragePath(...)
+    // QWebSettings::setOfflineStorageDefaultQuota(...)
 
     m_page = new WebPage(this, QUrl::fromLocalFile(m_config.scriptFile()));
     m_page->setCookieJar(m_defaultCookieJar);
@@ -173,24 +141,15 @@ void Phantom::init() {
     // Set script file encoding
     m_scriptFileEnc.setEncoding(m_config.scriptEncoding());
 
-#if QT_VERSION_MAJOR == 5
-    // These signals are specific to QtWebKit's QWebPage
-    connect(m_page, SIGNAL(javaScriptConsoleMessageSent(QString)), SLOT(printConsoleMessage(QString)));
-    connect(m_page, SIGNAL(initialized()), SLOT(onInitialized()));
-#elif QT_VERSION_MAJOR == 6
-    // For Qt6 (QtWebEngine), you'd connect to QWebEnginePage signals.
-    // This requires m_page to expose its internal QWebEnginePage object.
-    qWarning() << "JavaScript console message and initialized signals need to be adapted for Qt6 WebEngine.";
-    // Example conceptual connection (assuming WebPage has a webEnginePage() method):
-    // connect(m_page->webEnginePage(), &QWebEnginePage::javaScriptConsoleMessage, this, &Phantom::printConsoleMessage);
-    // connect(m_page->webEnginePage(), &QWebEnginePage::loadFinished, this, &Phantom::onInitialized); // Or a similar
-    // signal
-#endif
+    // Connect to WebPage signals (which are re-emitted from IEngineBackend)
+    connect(m_page, &WebPage::javaScriptConsoleMessageSent, this, &Phantom::printConsoleMessage);
+    connect(m_page, &WebPage::initialized, this, &Phantom::onInitialized);
 
+    // Build default page settings map
     m_defaultPageSettings[PAGE_SETTINGS_LOAD_IMAGES] = QVariant::fromValue(m_config.autoLoadImages());
-    m_defaultPageSettings[PAGE_SETTINGS_JS_ENABLED] = QVariant::fromValue(true);
+    m_defaultPageSettings[PAGE_SETTINGS_JS_ENABLED] = QVariant::fromValue(true); // Always true for PhantomJS
     m_defaultPageSettings[PAGE_SETTINGS_XSS_AUDITING] = QVariant::fromValue(false);
-    m_defaultPageSettings[PAGE_SETTINGS_USER_AGENT] = QVariant::fromValue(m_page->userAgent());
+    m_defaultPageSettings[PAGE_SETTINGS_USER_AGENT] = QVariant::fromValue(m_page->userAgent()); // Get initial UA from WebPage
     m_defaultPageSettings[PAGE_SETTINGS_LOCAL_ACCESS_REMOTE]
         = QVariant::fromValue(m_config.localToRemoteUrlAccessEnabled());
     m_defaultPageSettings[PAGE_SETTINGS_WEB_SECURITY_ENABLED] = QVariant::fromValue(m_config.webSecurityEnabled());
@@ -198,19 +157,32 @@ void Phantom::init() {
     m_defaultPageSettings[PAGE_SETTINGS_JS_CAN_CLOSE_WINDOWS]
         = QVariant::fromValue(m_config.javascriptCanCloseWindows());
     m_defaultPageSettings[PAGE_SETTINGS_DPI] = QVariant::fromValue(m_defaultDpi);
+    // Add other relevant config settings to defaultPageSettings for WebPage to apply
+    m_defaultPageSettings[PAGE_SETTINGS_IGNORE_SSL_ERRORS] = QVariant::fromValue(m_config.ignoreSslErrors());
+    m_defaultPageSettings[PAGE_SETTINGS_LOCAL_URL_ACCESS_ENABLED] = QVariant::fromValue(m_config.localUrlAccessEnabled());
+    m_defaultPageSettings[PAGE_SETTINGS_OFFLINE_STORAGE_PATH] = QVariant::fromValue(m_config.offlineStoragePath());
+    m_defaultPageSettings[PAGE_SETTINGS_OFFLINE_STORAGE_QUOTA] = QVariant::fromValue(m_config.offlineStorageDefaultQuota());
+    m_defaultPageSettings[PAGE_SETTINGS_LOCAL_STORAGE_PATH] = QVariant::fromValue(m_config.localStoragePath());
+    m_defaultPageSettings[PAGE_SETTINGS_LOCAL_STORAGE_QUOTA] = QVariant::fromValue(m_config.localStorageDefaultQuota());
+    m_defaultPageSettings[PAGE_SETTINGS_MAX_DISK_CACHE_SIZE] = QVariant::fromValue(m_config.maxDiskCacheSize());
+    m_defaultPageSettings[PAGE_SETTINGS_DISK_CACHE_ENABLED] = QVariant::fromValue(m_config.diskCacheEnabled());
+    m_defaultPageSettings[PAGE_SETTINGS_DISK_CACHE_PATH] = QVariant::fromValue(m_config.diskCachePath());
+    m_defaultPageSettings[PAGE_SETTINGS_SSL_PROTOCOL] = QVariant::fromValue(m_config.sslProtocol());
+    m_defaultPageSettings[PAGE_SETTINGS_SSL_CIPHERS] = QVariant::fromValue(m_config.sslCiphers());
+    m_defaultPageSettings[PAGE_SETTINGS_SSL_CERTIFICATES_PATH] = QVariant::fromValue(m_config.sslCertificatesPath());
+    m_defaultPageSettings[PAGE_SETTINGS_SSL_CLIENT_CERTIFICATE_FILE] = QVariant::fromValue(m_config.sslClientCertificateFile());
+    m_defaultPageSettings[PAGE_SETTINGS_SSL_CLIENT_KEY_FILE] = QVariant::fromValue(m_config.sslClientKeyFile());
+    m_defaultPageSettings[PAGE_SETTINGS_SSL_CLIENT_KEY_PASSPHRASE] = QVariant::fromValue(m_config.sslClientKeyPassphrase());
 
-#if QT_VERSION_MAJOR == 5
+    // Apply default settings to the initial page
     m_page->applySettings(m_defaultPageSettings);
-#elif QT_VERSION_MAJOR == 6
-    // applySettings would need to be re-implemented in WebPage for Qt6's QWebEngineSettings
-    qWarning() << "Page settings application needs to be adapted for Qt6 WebEngine.";
-#endif
 
     setLibraryPath(QFileInfo(m_config.scriptFile()).dir().absolutePath());
 }
 
 // public:
-Phantom* Phantom::instance() {
+Phantom* Phantom::instance()
+{
     if (!phantomInstance) {
         phantomInstance = new Phantom();
         phantomInstance->init();
@@ -218,8 +190,10 @@ Phantom* Phantom::instance() {
     return phantomInstance;
 }
 
-Phantom::~Phantom() {
+Phantom::~Phantom()
+{
     // Nothing to do: cleanup is handled by QObject relationships
+    // and doExit() should have been called
 }
 
 QVariantMap Phantom::defaultPageSettings() const { return m_defaultPageSettings; }
@@ -228,7 +202,8 @@ QString Phantom::outputEncoding() const { return Terminal::instance()->getEncodi
 
 void Phantom::setOutputEncoding(const QString& encoding) { Terminal::instance()->setEncoding(encoding); }
 
-bool Phantom::execute() {
+bool Phantom::execute()
+{
     if (m_terminated) {
         return false;
     }
@@ -251,59 +226,30 @@ bool Phantom::execute() {
 
     if (m_config.scriptFile().isEmpty()) { // REPL mode requested
         qDebug() << "Phantom - execute: Starting REPL mode";
-
-        // Create the REPL: it will launch itself, no need to store this variable.
-        // REPL class itself needs to be adapted for Qt6
-#if QT_VERSION_MAJOR == 5
-        REPL::getInstance(m_page->mainFrame(), this);
-#elif QT_VERSION_MAJOR == 6
-        // For Qt6, mainFrame() does not exist. REPL would need a QWebEnginePage reference.
-        qWarning() << "REPL instantiation needs adaptation for Qt6 WebEngine. mainFrame() does not exist.";
-        // Example: REPL::getInstance(m_page->webEnginePage(), this); // Conceptual
-#endif
+        // REPL class needs to be adapted to work directly with WebPage, not QWebFrame
+        REPL::getInstance(m_page, this);
     } else { // Load the User Script
         qDebug() << "Phantom - execute: Starting normal mode";
 
         if (m_config.debug()) {
             // Debug enabled
             int originalPort = m_config.remoteDebugPort();
-#if QT_VERSION_MAJOR == 5
+            // Call WebPage's showInspector, which delegates to IEngineBackend
             m_config.setRemoteDebugPort(m_page->showInspector(m_config.remoteDebugPort()));
-#elif QT_VERSION_MAJOR == 6
-            // showInspector does not exist on QWebEnginePage directly.
-            // Debugging in QtWebEngine is usually via chrome://inspect in a browser.
-            qWarning() << "showInspector is not available in Qt6 WebEngine. Remote debugging needs to be adapted.";
-            m_config.setRemoteDebugPort(0); // Indicate no debugging port for now
-#endif
+
             if (m_config.remoteDebugPort() == 0) {
                 qWarning() << "Can't bind remote debugging server to the port" << originalPort;
             }
-#if QT_VERSION_MAJOR == 5
-            if (!Utils::loadJSForDebug(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page->mainFrame(),
-                    m_config.remoteDebugAutorun())) {
-#elif QT_VERSION_MAJOR == 6
-            // mainFrame() does not exist in Qt6 for QWebEnginePage
-            // Utils::loadJSForDebug would need to be updated to take QWebEnginePage*
-            qWarning() << "loadJSForDebug needs adaptation for Qt6 WebEngine. mainFrame() does not exist.";
-            // Placeholder: This will not work until Utils::loadJSForDebug is updated for Qt6.
-            if (!Utils::loadJSForDebug(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(),
-                    Q_NULLPTR, // Pass nullptr or a conceptual WebEnginePage
-                    m_config.remoteDebugAutorun())) {
-#endif
+            // Utils::loadJSForDebug needs to be updated to accept WebPage*
+            if (!Utils::loadJSForDebug(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page,
+                                       m_config.remoteDebugAutorun())) {
                 m_returnValue = -1;
                 return false;
             }
         } else {
-#if QT_VERSION_MAJOR == 5
+            // Utils::injectJsInFrame needs to be updated to accept WebPage*
             if (!Utils::injectJsInFrame(
-                    m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page->mainFrame(), true)) {
-#elif QT_VERSION_MAJOR == 6
-            // mainFrame() does not exist in Qt6 for QWebEnginePage
-            // Utils::injectJsInFrame would need to be updated to take QWebEnginePage*
-            qWarning() << "injectJsInFrame needs adaptation for Qt6 WebEngine. mainFrame() does not exist.";
-            // Placeholder: This will not work until Utils::injectJsInFrame is updated for Qt6.
-            if (!Utils::injectJsInFrame(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), Q_NULLPTR, true)) {
-#endif
+                    m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page, true)) {
                 m_returnValue = -1;
                 return false;
             }
@@ -319,7 +265,8 @@ QString Phantom::libraryPath() const { return m_page->libraryPath(); }
 
 void Phantom::setLibraryPath(const QString& libraryPath) { m_page->setLibraryPath(libraryPath); }
 
-QVariantMap Phantom::version() const {
+QVariantMap Phantom::version() const
+{
     QVariantMap result;
     result["major"] = PHANTOMJS_VERSION_MAJOR;
     result["minor"] = PHANTOMJS_VERSION_MINOR;
@@ -335,7 +282,8 @@ bool Phantom::printDebugMessages() const { return m_config.printDebugMessages();
 
 bool Phantom::areCookiesEnabled() const { return m_defaultCookieJar->isEnabled(); }
 
-void Phantom::setCookiesEnabled(const bool value) {
+void Phantom::setCookiesEnabled(const bool value)
+{
     if (value) {
         m_defaultCookieJar->enable();
     } else {
@@ -343,41 +291,42 @@ void Phantom::setCookiesEnabled(const bool value) {
     }
 }
 
+// Added this new method for WebPage::pages()
+const QList<QPointer<WebPage>>& Phantom::allPages() const {
+    return m_pages;
+}
+
+
 // public slots:
 QObject* Phantom::createCookieJar(const QString& filePath) { return new CookieJar(filePath, this); }
 
-QObject* Phantom::createWebPage() {
+QObject* Phantom::createWebPage()
+{
     WebPage* page = new WebPage(this);
     page->setCookieJar(m_defaultCookieJar);
 
     // Store pointer to the page for later cleanup
     m_pages.append(page);
     // Apply default settings to the page
-#if QT_VERSION_MAJOR == 5
     page->applySettings(m_defaultPageSettings);
-#elif QT_VERSION_MAJOR == 6
-    qWarning() << "Page settings application for new pages needs to be adapted for Qt6 WebEngine.";
-#endif
 
     // Show web-inspector if in debug mode
     if (m_config.debug()) {
-#if QT_VERSION_MAJOR == 5
         page->showInspector(m_config.remoteDebugPort());
-#elif QT_VERSION_MAJOR == 6
-        qWarning() << "showInspector is not available in Qt6 WebEngine for new pages.";
-#endif
     }
 
     return page;
 }
 
-QObject* Phantom::createWebServer() {
+QObject* Phantom::createWebServer()
+{
     WebServer* server = new WebServer(this);
     m_servers.append(server);
     return server;
 }
 
-QObject* Phantom::createFilesystem() {
+QObject* Phantom::createFilesystem()
+{
     if (!m_filesystem) {
         m_filesystem = new FileSystem(this);
     }
@@ -385,7 +334,8 @@ QObject* Phantom::createFilesystem() {
     return m_filesystem;
 }
 
-QObject* Phantom::createSystem() {
+QObject* Phantom::createSystem()
+{
     if (!m_system) {
         m_system = new System(this);
 
@@ -398,7 +348,8 @@ QObject* Phantom::createSystem() {
     return m_system;
 }
 
-QObject* Phantom::_createChildProcess() {
+QObject* Phantom::_createChildProcess()
+{
     if (!m_childprocess) {
         m_childprocess = new ChildProcess(this);
     }
@@ -408,23 +359,21 @@ QObject* Phantom::_createChildProcess() {
 
 QObject* Phantom::createCallback() { return new Callback(this); }
 
-void Phantom::loadModule(const QString& moduleSource, const QString& filename) {
+void Phantom::loadModule(const QString& moduleSource, const QString& filename)
+{
     if (m_terminated) {
         return;
     }
 
     QString scriptSource = "(function(require, exports, module) {\n" + moduleSource + "\n}.call({}," + "require.cache['"
-        + filename + "']._getRequire()," + "require.cache['" + filename + "'].exports," + "require.cache['" + filename
-        + "']" + "));";
-#if QT_VERSION_MAJOR == 5
-    m_page->mainFrame()->evaluateJavaScript(scriptSource);
-#elif QT_VERSION_MAJOR == 6
-    qWarning() << "evaluateJavaScript on mainFrame() needs to be adapted for Qt6 WebEngine.";
-    // For Qt6, you'd typically use m_page->webEnginePage()->runJavaScript(scriptSource)
-#endif
+                           + filename + "']._getRequire()," + "require.cache['" + filename + "'].exports," + "require.cache['" + filename
+                           + "']" + "));";
+    // Now delegates to WebPage, which uses IEngineBackend
+    m_page->evaluateJavaScript(scriptSource);
 }
 
-bool Phantom::injectJs(const QString& jsFilePath) {
+bool Phantom::injectJs(const QString& jsFilePath)
+{
     QString pre = "";
     qDebug() << "Phantom - injectJs:" << jsFilePath;
 
@@ -432,48 +381,49 @@ bool Phantom::injectJs(const QString& jsFilePath) {
         return false;
     }
 
-#if QT_VERSION_MAJOR == 5
-    return Utils::injectJsInFrame(pre + jsFilePath, Encoding::UTF8, libraryPath(), m_page->mainFrame());
-#elif QT_VERSION_MAJOR == 6
-    qWarning() << "injectJsInFrame needs adaptation for Qt6 WebEngine. mainFrame() does not exist.";
-    // For Qt6, you'd pass m_page->webEnginePage() to Utils::injectJsInFrame
-    return false; // Cannot correctly inject without WebEnginePage
-#endif
+    // Now delegates to WebPage, which uses IEngineBackend
+    return m_page->injectJs(pre + jsFilePath);
 }
 
 void Phantom::setProxy(
-    const QString& ip, const qint64& port, const QString& proxyType, const QString& user, const QString& password) {
+    const QString& ip, const qint64& port, const QString& proxyType, const QString& user, const QString& password)
+{
     qDebug() << "Set " << proxyType << " proxy to: " << ip << ":" << port;
-    if (ip.isEmpty()) {
-        QNetworkProxyFactory::setUseSystemConfiguration(true);
-    } else {
-        QNetworkProxy::ProxyType networkProxyType = QNetworkProxy::HttpProxy;
+    QNetworkProxy::ProxyType networkProxyType = QNetworkProxy::HttpProxy;
+    if (proxyType == "socks5") {
+        networkProxyType = QNetworkProxy::Socks5Proxy;
+    } else if (proxyType == "none") {
+        // Handle "none" explicitly as QNetworkProxy::NoProxy
+        networkProxyType = QNetworkProxy::NoProxy;
+    }
 
-        if (proxyType == "socks5") {
-            networkProxyType = QNetworkProxy::Socks5Proxy;
-        }
-        // Checking for passed proxy user and password
-        if (!user.isEmpty() && !password.isEmpty()) {
-            QNetworkProxy proxy(networkProxyType, ip, port, user, password);
-            QNetworkProxy::setApplicationProxy(proxy);
-        } else {
-            QNetworkProxy proxy(networkProxyType, ip, port);
-            QNetworkProxy::setApplicationProxy(proxy);
-        }
+    QNetworkProxy proxy(networkProxyType, ip, port, user, password);
+    QNetworkProxy::setApplicationProxy(proxy); // Still set global Qt proxy for now
+
+    // Also inform the default page's backend about the proxy
+    if (m_page) {
+        m_page->setProxy(proxy.toUrl().toString()); // Use WebPage's setProxy
     }
 }
 
-QString Phantom::proxy() {
+QString Phantom::proxy()
+{
     QNetworkProxy proxy = QNetworkProxy::applicationProxy();
     if (proxy.hostName().isEmpty()) {
         return QString();
     }
-    return proxy.hostName() + ":" + QString::number(proxy.port());
+    // Return the string representation of the proxy set
+    QString proxyString = proxy.hostName() + ":" + QString::number(proxy.port());
+    if (!proxy.user().isEmpty()) {
+        proxyString = proxy.user() + ":" + proxy.password() + "@" + proxyString;
+    }
+    return proxy.type() == QNetworkProxy::Socks5Proxy ? "socks5://" + proxyString : "http://" + proxyString;
 }
 
 int Phantom::remoteDebugPort() const { return m_config.remoteDebugPort(); }
 
-void Phantom::exit(int code) {
+void Phantom::exit(int code)
+{
     if (m_config.debug()) {
         Terminal::instance()->cout("Phantom::exit() called but not quitting in debug mode.");
     } else {
@@ -483,7 +433,8 @@ void Phantom::exit(int code) {
 
 void Phantom::debugExit(int code) { doExit(code); }
 
-QString Phantom::resolveRelativeUrl(QString url, QString base) {
+QString Phantom::resolveRelativeUrl(QString url, QString base)
+{
     QUrl u = QUrl::fromEncoded(url.toLatin1());
     QUrl b = QUrl::fromEncoded(base.toLatin1());
 
@@ -495,58 +446,86 @@ QString Phantom::fullyDecodeUrl(QString url) { return QUrl::fromEncoded(url.toLa
 // private slots:
 void Phantom::printConsoleMessage(const QString& message) { Terminal::instance()->cout(message); }
 
-void Phantom::onInitialized() {
-    // Add 'phantom' object to the global scope
-#if QT_VERSION_MAJOR == 5
-    m_page->mainFrame()->addToJavaScriptWindowObject("phantom", this);
-#elif QT_VERSION_MAJOR == 6
-    qWarning() << "addToJavaScriptWindowObject on mainFrame() needs to be adapted for Qt6 WebEngine.";
-    // For Qt6, exposing objects to JavaScript is more involved, usually via QWebChannel
-    // or QWebEngineScriptCollection. Direct method is not available.
-#endif
+void Phantom::onInitialized()
+{
+    // This slot is triggered when the IEngineBackend (via WebPage) is ready
+    // to have JS objects exposed.
+    qDebug() << "Phantom - onInitialized: Exposing 'phantom' object and loading bootstrap.js";
 
-    // Bootstrap the PhantomJS scope
-#if QT_VERSION_MAJOR == 5
-    m_page->mainFrame()->evaluateJavaScript(Utils::readResourceFileUtf8(":/bootstrap.js"));
-#elif QT_VERSION_MAJOR == 6
-    qWarning() << "evaluateJavaScript on mainFrame() needs to be adapted for Qt6 WebEngine.";
-#endif
+    // Expose the 'phantom' QObject to the JavaScript context via the IEngineBackend
+    // This will instruct the Playwright backend to set up `window.phantom`
+    // and map its methods/properties.
+    if (m_page && m_page->engineBackend()) { // Ensure backend is available
+        m_page->engineBackend()->exposeQObject("phantom", this);
+        // Then, load the bootstrap.js. This script will now expect 'window.phantom'
+        // to be available through the Playwright exposure mechanism.
+        // It will call evaluateJavaScript on the page which delegates to the backend.
+        m_page->evaluateJavaScript(Utils::readResourceFileUtf8(":/bootstrap.js"));
+    } else {
+        qWarning() << "Phantom - onInitialized: WebPage or its backend not ready for JavaScript object exposure.";
+    }
 }
 
-bool Phantom::setCookies(const QVariantList& cookies) {
+bool Phantom::setCookies(const QVariantList& cookies)
+{
     // Delete all the cookies from the CookieJar
     m_defaultCookieJar->clearCookies();
     // Add a new set of cookies
-    return m_defaultCookieJar->addCookiesFromMap(cookies);
+    bool success = m_defaultCookieJar->addCookiesFromMap(cookies);
+    // Also instruct the default page's backend to set these cookies globally
+    if (success && m_page) {
+        m_page->setCookies(cookies);
+    }
+    return success;
 }
 
-QVariantList Phantom::cookies() const {
-    // Return all the Cookies in the CookieJar, as a list of Maps (aka JSON in JS
-    // space)
+QVariantList Phantom::cookies() const
+{
+    // Return all the Cookies in the CookieJar, as a list of Maps
+    // For consistency, consider getting this from the default page's backend.
+    // For now, returning from local CookieJar.
+    // return m_page->cookies(); // This would delegate to backend
     return m_defaultCookieJar->cookiesToMap();
 }
 
-bool Phantom::addCookie(const QVariantMap& cookie) { return m_defaultCookieJar->addCookieFromMap(cookie); }
+bool Phantom::addCookie(const QVariantMap& cookie)
+{
+    bool success = m_defaultCookieJar->addCookieFromMap(cookie);
+    if (success && m_page) {
+        m_page->addCookie(cookie);
+    }
+    return success;
+}
 
-bool Phantom::deleteCookie(const QString& cookieName) {
+bool Phantom::deleteCookie(const QString& cookieName)
+{
     if (!cookieName.isEmpty()) {
-        return m_defaultCookieJar->deleteCookie(cookieName);
+        bool success = m_defaultCookieJar->deleteCookie(cookieName);
+        if (success && m_page) {
+            m_page->deleteCookie(cookieName);
+        }
+        return success;
     }
     return false;
 }
 
-void Phantom::clearCookies() { m_defaultCookieJar->clearCookies(); }
+void Phantom::clearCookies()
+{
+    m_defaultCookieJar->clearCookies();
+    if (m_page) {
+        m_page->clearCookies();
+    }
+}
 
 // private:
-void Phantom::doExit(int code) {
+void Phantom::doExit(int code)
+{
     emit aboutToExit(code);
     m_terminated = true;
     m_returnValue = code;
 
     // Iterate in reverse order so the first page is the last one scheduled for
-    // deletion. The first page is the root object, which will be invalidated when
-    // it is deleted. This causes an assertion to go off in BridgeJSC.cpp
-    // Instance::createRuntimeObject.
+    // deletion. This should help prevent issues with root page invalidation.
     QListIterator<QPointer<WebPage>> i(m_pages);
     i.toBack();
     while (i.hasPrevious()) {
@@ -557,16 +536,26 @@ void Phantom::doExit(int code) {
         }
 
         // stop processing of JavaScript code by loading a blank page
-#if QT_VERSION_MAJOR == 5
-        page->mainFrame()->setUrl(QUrl(QStringLiteral("about:blank")));
-#elif QT_VERSION_MAJOR == 6
-        qWarning() << "setUrl on mainFrame() needs to be adapted for Qt6 WebEngine.";
-        // For Qt6, you'd use page->webEnginePage()->setUrl(QUrl(QStringLiteral("about:blank")));
-#endif
+        // Delegating to WebPage's setContent which uses IEngineBackend
+        page->setContent(QStringLiteral("about:blank"));
         // delay deletion into the event loop, direct deletion can trigger crashes
         page->deleteLater();
     }
     m_pages.clear();
-    m_page = 0;
+    m_page = 0; // Clear default page pointer
+
+    // --- Critical: Ensure Playwright backend processes are killed ---
+    // This is handled by WebPage's destructor (due to parentage)
+    // and PlaywrightEngineBackend's destructor which sends a shutdown command.
+    // However, if the QApplication is exiting, make sure all child processes are terminated.
+    // QProcess objects (like in PlaywrightEngineBackend) are usually stopped gracefully on QObject parent destruction.
+    // Explicitly calling close() on all WebPage objects would trigger their destructors.
     QApplication::instance()->exit(code);
+}
+
+// Private helper to get IEngineBackend from WebPage
+// This is added to phantom.h as a friend function or similar if needed externally.
+// It is useful during development to confirm type.
+IEngineBackend* WebPage::engineBackend() const {
+    return m_engineBackend;
 }
