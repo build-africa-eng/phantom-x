@@ -1,7 +1,7 @@
 /*
   This file is part of the PhantomJS project from Ofi Labs.
 
-  Copyright (C) 2011 Ivan De Marino <ivan.de.marino@gmail.com>
+  Copyright (C) 2011-2025 Ivan De Marino <ivan.de.marino@gmail.com>
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions are met:
@@ -30,50 +30,74 @@
 #ifndef REPL_H
 #define REPL_H
 
-#include <QtWebKitWidgets/QWebFrame>
+#include <QObject>
+#include <QVariant>
+#include <QStringList>
+#include <QPointer> // For safe pointer to WebPage
 
-#include "phantom.h"
+// Forward declarations
+class Phantom;
+class WebPage; // Now directly referencing WebPage, not QWebFrame
 
-// Linenoise is a C Library: we need to externalise it's symbols for linkage
+// linenoise library declarations (assuming it's a C library)
 extern "C" {
-#include "linenoise.h"
+    struct linenoiseCompletions;
+    typedef void(linenoiseCompletionCallbackFn)(const char* /*buf*/, linenoiseCompletions* /*lc*/);
+    void linenoiseSetCompletionCallback(linenoiseCompletionCallbackFn*);
+    void linenoiseAddCompletion(linenoiseCompletions*, const char* /*str*/);
+    char* linenoise(const char* /*prompt*/);
+    void linenoiseHistoryLoad(const char* /*filename*/);
+    void linenoiseHistorySave(const char* /*filename*/);
+    void linenoiseHistoryAdd(const char* /*line*/);
+    void linenoiseFree(void* /*ptr*/);
 }
 
 /**
- * REPL. Read–Eval–Print Loop.
- *
- * This class realises the REPL functionality within PhantomJS.
- * It's a Singleton: invoke "REPL::getInstance(QWebFrame *, Phantom *) to
- * create the first-and-only instance, or no parameter to get the singleton
- * if previously created.
- *
- * It's based the Linenoise library (https://github.com/tadmarshall/linenoise).
- * More info about REPL:
- * http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop
+ * @brief REPL (Read-Eval-Print-Loop) provides an interactive console for PhantomJS.
+ * It allows users to type JavaScript commands and see the results directly.
  */
-class REPL : public QObject {
+class REPL : public QObject
+{
     Q_OBJECT
 
-public:
-    static bool instanceExists();
-    static REPL* getInstance(QWebFrame* webframe = NULL, Phantom* parent = NULL);
+    // Q_PROPERTY(QVariant returnValue READ returnValue WRITE setReturnValue) // Not directly used in REPL itself
 
-    Q_INVOKABLE QString _getClassName(QObject* obj) const;
-    Q_INVOKABLE QStringList _enumerateCompletions(QObject* obj) const;
+public:
+    // Factory method to get the singleton instance
+    // Now takes WebPage* instead of QWebFrame*
+    static REPL* getInstance(WebPage* webpage = nullptr, Phantom* parent = nullptr);
+    static REPL* getInstance(); // Overload for internal use when singleton is guaranteed
+
+    static bool instanceExists(); // Checks if the singleton has been initialized
 
 private:
-    REPL(QWebFrame* webframe, Phantom* parent);
-    static void offerCompletion(const char* buf, linenoiseCompletions* lc);
+    // Private constructor for singleton pattern
+    REPL(WebPage* webpage, Phantom* parent);
+    // Helper methods for JavaScript completions, moved to private as they are internal to REPL
+    QString _getClassName(QObject* obj) const;
+    QStringList _enumerateCompletions(QObject* obj) const;
+
+
+public slots: // Exposed to JavaScript via _repl object
+    // These methods are called by the repl.js script in the browser context
+    // to get class names and enumerate properties for tab completion.
+    QString getClassName(QObject* obj) const;
+    QStringList enumerateCompletions(QObject* obj) const;
+
+signals:
+    // No direct signals from REPL to be public for now
 
 private slots:
-    void startLoop();
-    void stopLoop(const int code);
+    void startLoop(); // Starts the main REPL loop
+    void stopLoop(int code); // Stops the REPL loop on exit signal from Phantom
 
 private:
-    QWebFrame* m_webframe;
-    Phantom* m_parentPhantom;
+    static void offerCompletion(const char* buf, linenoiseCompletions* lc); // Static callback for linenoise
+
     bool m_looping;
-    QByteArray m_historyFilepath;
+    QPointer<WebPage> m_webpage; // Changed from QWebFrame* to WebPage*
+    QPointer<Phantom> m_parentPhantom; // QPointer for safe access
+    QString m_historyFilepath;
 };
 
 #endif // REPL_H
