@@ -28,14 +28,14 @@
 */
 
 #include "repl.h"
-
 #include <QDir>
 #include <QMetaMethod>
 #include <QMetaProperty>
 #include <QRegExp>
 #include <QStandardPaths>
 #include <QTimer>
-
+#include <QSet>
+#include <algorithm>
 #include "consts.h"
 #include "terminal.h"
 #include "utils.h"
@@ -117,7 +117,10 @@ QStringList REPL::_enumerateCompletions(QObject* obj) const {
         completions.insert(name, true);
     }
 
-    return completions.uniqueKeys();
+    QStringList keys = completions.keys().toSet().values();
+std::sort(keys.begin(), keys.end());
+return keys;
+
 }
 
 // private:
