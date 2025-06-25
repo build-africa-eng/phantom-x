@@ -29,16 +29,22 @@
 */
 
 #include "utils.h"
+
 #include "consts.h"
 #include "terminal.h"
+#include "webpage.h" // Now includes WebPage instead of QWebFrame
 
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
-#include <QtWebKitWidgets/QWebFrame>
+#include <QRegularExpression> // Added for QRegExp to QRegularExpression migration
 
-static QString findScript(const QString& jsFilePath, const QString& libraryPath) {
+
+// Removed: #include <QtWebKitWidgets/QWebFrame>
+
+static QString findScript(const QString& jsFilePath, const QString& libraryPath)
+{
     if (!jsFilePath.isEmpty()) {
         QFile jsFile;
 
@@ -54,7 +60,8 @@ static QString findScript(const QString& jsFilePath, const QString& libraryPath)
     return QString();
 }
 
-static QString jsFromScriptFile(const QString& scriptPath, const Encoding& enc) {
+static QString jsFromScriptFile(const QString& scriptPath, const Encoding& enc)
+{
     QFile jsFile(scriptPath);
     if (jsFile.exists() && jsFile.open(QFile::ReadOnly)) {
         QString scriptBody = enc.decode(jsFile.readAll());
@@ -62,7 +69,8 @@ static QString jsFromScriptFile(const QString& scriptPath, const Encoding& enc) 
 
         // Remove CLI script heading
         if (scriptBody.startsWith("#!")) {
-            int len = scriptBody.indexOf(QRegExp("[\r\n]"));
+            // Changed QRegExp to QRegularExpression
+            int len = scriptBody.indexOf(QRegularExpression("[\r\n]"));
             if (len == -1) {
                 len = scriptBody.length();
             }
@@ -79,7 +87,8 @@ namespace Utils {
 
 bool printDebugMessages = false;
 
-void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg) {
+void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg)
+{
     Q_UNUSED(context);
     QDateTime now = QDateTime::currentDateTime();
 
@@ -104,7 +113,8 @@ void messageHandler(QtMsgType type, const QMessageLogContext& context, const QSt
 }
 
 bool injectJsInFrame(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
-    QWebFrame* targetFrame, const bool startingScript) {
+                     WebPage* targetPage, const bool startingScript) // Changed QWebFrame* to WebPage*
+{
     // Don't do anything if an empty string is passed
     QString scriptPath = findScript(jsFilePath, libraryPath);
     QString scriptBody = jsFromScriptFile(scriptPath, jsFileEnc);
@@ -116,31 +126,35 @@ bool injectJsInFrame(const QString& jsFilePath, const Encoding& jsFileEnc, const
         }
         return false;
     }
-    // Execute JS code in the context of the document
-    targetFrame->evaluateJavaScript(scriptBody);
+    // Execute JS code in the context of the document via WebPage's evaluateJavaScript
+    targetPage->evaluateJavaScript(scriptBody);
     return true;
 }
 
 bool loadJSForDebug(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
-    QWebFrame* targetFrame, const bool autorun) {
+                    WebPage* targetPage, const bool autorun) // Changed QWebFrame* to WebPage*
+{
     QString scriptPath = findScript(jsFilePath, libraryPath);
     QString scriptBody = jsFromScriptFile(scriptPath, jsFileEnc);
 
     scriptBody = QString("function __run() {\n%1\n}").arg(scriptBody);
-    targetFrame->evaluateJavaScript(scriptBody);
+    targetPage->evaluateJavaScript(scriptBody); // Execute via WebPage
 
     if (autorun) {
-        targetFrame->evaluateJavaScript("__run()");
+        targetPage->evaluateJavaScript("__run()"); // Execute via WebPage
     }
 
     return true;
 }
 
-QString readResourceFileUtf8(const QString& resourceFilePath) {
+QString readResourceFileUtf8(const QString& resourceFilePath)
+{
     QFile f(resourceFilePath);
-    f.open(QFile::ReadOnly); //< It's OK to assume this succeed. If it doesn't, we
-                             // have a bigger problem.
+    if (!f.open(QFile::ReadOnly)) { // Add check for file open success
+        qCritical() << "Failed to open resource file:" << resourceFilePath;
+        return QString(); // Return empty string on failure
+    }
     return QString::fromUtf8(f.readAll());
 }
 
-}; // namespace Utils
+} // namespace Utils
