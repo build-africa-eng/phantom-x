@@ -50,20 +50,21 @@ class QWebInspector; // This will likely be removed or become conceptual for Pla
 class Phantom; // Phantom creates WebPage instances
 
 // No more direct QtWebKit includes!
-// #include <QPdfWriter.h> // QPdfWriter is part of Qt GUI, not WebKit specific, so can stay if WebPage handles PDF writing itself, or moved to backend
-// #include <QtWebKitWidgets/QWebFrame>
-// #include <QtWebKitWidgets/QWebPage>
+// #include <QPdfWriter.h> // QPdfWriter is part of Qt GUI, not WebKit specific, so can stay if WebPage handles PDF
+// writing itself, or moved to backend #include <QtWebKitWidgets/QWebFrame> #include <QtWebKitWidgets/QWebPage>
 
 class WebPage : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString title READ title NOTIFY titleChanged)
     Q_PROPERTY(QString frameTitle READ frameTitle NOTIFY frameTitleChanged) // Renamed for consistency
     Q_PROPERTY(QString content READ content WRITE setContent NOTIFY contentChanged)
-    Q_PROPERTY(QString frameContent READ frameContent WRITE setFrameContent NOTIFY frameContentChanged) // Renamed for consistency
+    Q_PROPERTY(QString frameContent READ frameContent WRITE setFrameContent NOTIFY
+            frameContentChanged) // Renamed for consistency
     Q_PROPERTY(QString url READ url NOTIFY urlChanged)
     Q_PROPERTY(QString frameUrl READ frameUrl NOTIFY frameUrlChanged) // Renamed for consistency
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged) // Added loadingChanged signal
-    Q_PROPERTY(int loadingProgress READ loadingProgress NOTIFY loadingProgressChanged) // Added loadingProgressChanged signal
+    Q_PROPERTY(
+        int loadingProgress READ loadingProgress NOTIFY loadingProgressChanged) // Added loadingProgressChanged signal
     Q_PROPERTY(bool canGoBack READ canGoBack)
     Q_PROPERTY(bool canGoForward READ canGoForward)
     Q_PROPERTY(QString plainText READ plainText NOTIFY plainTextChanged)
@@ -150,7 +151,6 @@ public:
     QString header(int page, int numPages);
     qreal headerHeight() const;
 
-
     void setZoomFactor(qreal zoom);
     qreal zoomFactor() const;
 
@@ -184,7 +184,6 @@ public slots:
     void _uploadFile(const QString& selector, const QStringList& fileNames);
     void sendEvent(const QString& type, const QVariant& arg1 = QVariant(), const QVariant& arg2 = QVariant(),
         const QString& mouseButton = QString(), const QVariant& modifierArg = QVariant());
-
 
     QObject* getPage(const QString& windowName) const; // New way to find child pages
 
@@ -248,8 +247,8 @@ signals:
     // Resource Handling (more detailed data from IEngineBackend)
     void resourceRequested(const QVariant& requestData, QObject* request); // QVariant should be QVariantMap now
     void resourceReceived(const QVariant& resource); // QVariant should be QVariantMap now
-    void resourceError(const QVariant& errorData);       // QVariant should be QVariantMap now
-    void resourceTimeout(const QVariant& errorData);     // QVariant should be QVariantMap now
+    void resourceError(const QVariant& errorData); // QVariant should be QVariantMap now
+    void resourceTimeout(const QVariant& errorData); // QVariant should be QVariantMap now
 
     // Navigation and Popups
     void navigationRequested(
@@ -274,7 +273,8 @@ private slots:
     void handleEngineResourceReceived(const QVariantMap& responseData);
     void handleEngineResourceError(const QVariantMap& errorData);
     void handleEngineResourceTimeout(const QVariantMap& errorData);
-    void handleEngineNavigationRequested(const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
+    void handleEngineNavigationRequested(
+        const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
     void handleEngineWebPageCreated(IEngineBackend* newBackend); // Creates a new WebPage
     void handleEngineClosing(); // Backend closing, emit closing() for this page
     void handleEngineRepaintRequested(const QRect& dirtyRect);
@@ -337,8 +337,8 @@ private:
     // void changeCurrentFrame(QWebFrame* const frame); // Replaced by switchToFrame methods
     // QString filePicker(const QString& oldFile); // Replaced by handleFilePicker signal/method
     // bool javaScriptConfirm(const QString& msg); // Replaced by handleJavaScriptConfirm
-    // bool javaScriptPrompt(const QString& msg, const QString& defaultValue, QString* result); // Replaced by handleJavaScriptPrompt
-    // void javascriptInterrupt(); // Replaced by handleJavaScriptInterrupt
+    // bool javaScriptPrompt(const QString& msg, const QString& defaultValue, QString* result); // Replaced by
+    // handleJavaScriptPrompt void javascriptInterrupt(); // Replaced by handleJavaScriptInterrupt
 };
 
 #endif // WEBPAGE_H
