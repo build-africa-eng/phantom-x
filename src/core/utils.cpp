@@ -40,11 +40,9 @@
 #include <QFile>
 #include <QRegularExpression> // Added for QRegExp to QRegularExpression migration
 
-
 // Removed: #include <QtWebKitWidgets/QWebFrame>
 
-static QString findScript(const QString& jsFilePath, const QString& libraryPath)
-{
+static QString findScript(const QString& jsFilePath, const QString& libraryPath) {
     if (!jsFilePath.isEmpty()) {
         QFile jsFile;
 
@@ -60,8 +58,7 @@ static QString findScript(const QString& jsFilePath, const QString& libraryPath)
     return QString();
 }
 
-static QString jsFromScriptFile(const QString& scriptPath, const Encoding& enc)
-{
+static QString jsFromScriptFile(const QString& scriptPath, const Encoding& enc) {
     QFile jsFile(scriptPath);
     if (jsFile.exists() && jsFile.open(QFile::ReadOnly)) {
         QString scriptBody = enc.decode(jsFile.readAll());
@@ -87,8 +84,7 @@ namespace Utils {
 
 bool printDebugMessages = false;
 
-void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg)
-{
+void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg) {
     Q_UNUSED(context);
     QDateTime now = QDateTime::currentDateTime();
 
@@ -113,7 +109,7 @@ void messageHandler(QtMsgType type, const QMessageLogContext& context, const QSt
 }
 
 bool injectJsInFrame(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
-                     WebPage* targetPage, const bool startingScript) // Changed QWebFrame* to WebPage*
+    WebPage* targetPage, const bool startingScript) // Changed QWebFrame* to WebPage*
 {
     // Don't do anything if an empty string is passed
     QString scriptPath = findScript(jsFilePath, libraryPath);
@@ -132,7 +128,7 @@ bool injectJsInFrame(const QString& jsFilePath, const Encoding& jsFileEnc, const
 }
 
 bool loadJSForDebug(const QString& jsFilePath, const Encoding& jsFileEnc, const QString& libraryPath,
-                    WebPage* targetPage, const bool autorun) // Changed QWebFrame* to WebPage*
+    WebPage* targetPage, const bool autorun) // Changed QWebFrame* to WebPage*
 {
     QString scriptPath = findScript(jsFilePath, libraryPath);
     QString scriptBody = jsFromScriptFile(scriptPath, jsFileEnc);
@@ -147,8 +143,7 @@ bool loadJSForDebug(const QString& jsFilePath, const Encoding& jsFileEnc, const 
     return true;
 }
 
-QString readResourceFileUtf8(const QString& resourceFilePath)
-{
+QString readResourceFileUtf8(const QString& resourceFilePath) {
     QFile f(resourceFilePath);
     if (!f.open(QFile::ReadOnly)) { // Add check for file open success
         qCritical() << "Failed to open resource file:" << resourceFilePath;
