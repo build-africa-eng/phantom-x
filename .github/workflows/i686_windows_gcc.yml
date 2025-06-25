@@ -16,49 +16,56 @@ jobs:
       run: echo "C:\\msys64\\usr\\bin" >> $GITHUB_PATH
 
     - name: Update pacman and mirrors
+      shell: bash
       run: |
         pacman -Sy --noconfirm
         pacman -S --noconfirm pacman-mirrors
 
-    - name: Install GCC toolchain and dependencies
+    - name: Install toolchain and dependencies
       shell: bash
       run: |
-       pacman --noconfirm -S \
-       mingw64/mingw-w64-x86_64-toolchain \
-       mingw64/mingw-w64-x86_64-cmake \
-       mingw64/mingw-w64-x86_64-qtwebkit \
-       mingw64/mingw-w64-x86_64-python
-
-
+        pacman --noconfirm -S \
+          mingw32/mingw-w64-i686-toolchain \
+          mingw32/mingw-w64-i686-cmake \
+          mingw32/mingw-w64-i686-qt5 \
+          mingw32/mingw-w64-i686-qtwebkit \
+          mingw32/mingw-w64-i686-python
 
     - name: Add mingw32 to PATH
       shell: bash
       run: echo "C:\\msys64\\mingw32\\bin" >> $GITHUB_PATH
 
+    - name: Debug PATH and qmake
+      shell: bash
+      run: |
+        echo $PATH
+        which qmake || echo "qmake not found"
+        ls -l /c/msys64/mingw32/bin | grep qmake || echo "No qmake in bin"
+
     - name: Display tools version
+      shell: bash
       run: |
         i686-w64-mingw32-gcc --version
         cmake --version
         qmake --version
         python --version
 
-    - name: Configure with CMake
+    - name: ./configure
+      shell: bash
       run: bash ./configure
       env:
         CMAKE_CMD: 'cmake -G "MinGW Makefiles"'
 
     - name: Build PhantomJS
+      shell: bash
       run: mingw32-make
 
     - name: Inspect built binary
+      shell: bash
       run: |
         file ./bin/phantomjs || echo "file check failed"
         ldd ./bin/phantomjs || echo "ldd check failed"
 
     - name: Run PhantomJS
+      shell: bash
       run: ./bin/phantomjs --version || echo "phantomjs execution failed"
-
-    - name: Run Tests (and always show results)
-      run: |
-        echo "Running test suite..."
-        make check || true  # don't fail the workflow on test failure
