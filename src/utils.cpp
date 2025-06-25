@@ -150,7 +150,7 @@ bool loadJSForDebug(const QString &jsFilePath, const Encoding &jsFileEnc,
 QString readResourceFileUtf8(const QString &resourceFilePath) {
   QFile f(resourceFilePath);
   f.open(QFile::ReadOnly); //< It's OK to assume this succeed. If it doesn't, we
-                           //have a bigger problem.
+                           // have a bigger problem.
   return QString::fromUtf8(f.readAll());
 }
 

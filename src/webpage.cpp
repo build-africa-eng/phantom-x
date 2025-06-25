@@ -78,8 +78,8 @@
 #define INPAGE_CALL_NAME "window.callPhantom"
 #define CALLBACKS_OBJECT_INJECTION                                             \
   INPAGE_CALL_NAME                                                             \
-      " = function() { return window." CALLBACKS_OBJECT_NAME                   \
-      ".call.call(_phantom, Array.prototype.slice.call(arguments, 0)); };"
+  " = function() { return window." CALLBACKS_OBJECT_NAME                       \
+  ".call.call(_phantom, Array.prototype.slice.call(arguments, 0)); };"
 #define CALLBACKS_OBJECT_PRESENT                                               \
   "typeof(window." CALLBACKS_OBJECT_NAME ") !== \"undefined\";"
 #define STDOUT_FILENAME "/dev/stdout"

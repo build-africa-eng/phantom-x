@@ -209,7 +209,7 @@ bool WebServer::handleRequest(mg_event event, mg_connection *conn,
   QVariantMap headersObject;
   QMap<QString, QString>
       ciHeadersObject; //< FIXME: "case-insensitive" Headers. This shows how
-                       //desperately we need a better HTTP Server
+                       // desperately we need a better HTTP Server
   for (int i = 0; i < request->num_headers; ++i) {
     QString key = QString::fromLocal8Bit(request->http_headers[i].name);
     QString value = QString::fromLocal8Bit(request->http_headers[i].value);
