@@ -118,9 +118,8 @@ QStringList REPL::_enumerateCompletions(QObject* obj) const {
     }
 
     QStringList keys = completions.keys().toSet().values();
-std::sort(keys.begin(), keys.end());
-return keys;
-
+    std::sort(keys.begin(), keys.end());
+    return keys;
 }
 
 // private:
