@@ -40,7 +40,7 @@
 #include <QScreen>
 #include <QStandardPaths>
 #include <QNetworkProxyFactory> // Standard Qt class, compatible with Qt5/Qt6
-#include <QNetworkProxy>       // Standard Qt class, compatible with Qt5/Qt6
+#include <QNetworkProxy> // Standard Qt class, compatible with Qt5/Qt6
 
 // NO LONGER NEEDED: QtWebKit includes are removed
 // #if QT_VERSION_MAJOR == 5
@@ -48,7 +48,8 @@
 // #include <QtWebKitWidgets/QWebPage>
 // #include <QtWebKitWidgets/QWebSettings>
 // #elif QT_VERSION_MAJOR == 6
-// #warning "Qt6 compatibility requires migrating from QtWebKit to QtWebEngine. QWebPage, QWebFrame, and QWebSettings are not available in Qt6. Core web functionality will be broken until WebPage is re-implemented for QtWebEngine."
+// #warning "Qt6 compatibility requires migrating from QtWebKit to QtWebEngine. QWebPage, QWebFrame, and QWebSettings
+// are not available in Qt6. Core web functionality will be broken until WebPage is re-implemented for QtWebEngine."
 // #endif
 
 #include "callback.h"
@@ -73,8 +74,7 @@ Phantom::Phantom(QObject* parent)
     , m_returnValue(0)
     , m_filesystem(0)
     , m_system(0)
-    , m_childprocess(0)
-{
+    , m_childprocess(0) {
     QStringList args = QApplication::arguments();
 
     // Prepare the configuration object based on the command line arguments.
@@ -85,8 +85,7 @@ Phantom::Phantom(QObject* parent)
     Utils::printDebugMessages = m_config.printDebugMessages();
 }
 
-void Phantom::init()
-{
+void Phantom::init() {
     if (m_config.helpFlag()) {
         Terminal::instance()->cout(QString("%1").arg(m_config.helpText()));
         Terminal::instance()->cout("Any of the options that accept boolean values "
@@ -149,7 +148,8 @@ void Phantom::init()
     m_defaultPageSettings[PAGE_SETTINGS_LOAD_IMAGES] = QVariant::fromValue(m_config.autoLoadImages());
     m_defaultPageSettings[PAGE_SETTINGS_JS_ENABLED] = QVariant::fromValue(true); // Always true for PhantomJS
     m_defaultPageSettings[PAGE_SETTINGS_XSS_AUDITING] = QVariant::fromValue(false);
-    m_defaultPageSettings[PAGE_SETTINGS_USER_AGENT] = QVariant::fromValue(m_page->userAgent()); // Get initial UA from WebPage
+    m_defaultPageSettings[PAGE_SETTINGS_USER_AGENT]
+        = QVariant::fromValue(m_page->userAgent()); // Get initial UA from WebPage
     m_defaultPageSettings[PAGE_SETTINGS_LOCAL_ACCESS_REMOTE]
         = QVariant::fromValue(m_config.localToRemoteUrlAccessEnabled());
     m_defaultPageSettings[PAGE_SETTINGS_WEB_SECURITY_ENABLED] = QVariant::fromValue(m_config.webSecurityEnabled());
@@ -159,9 +159,11 @@ void Phantom::init()
     m_defaultPageSettings[PAGE_SETTINGS_DPI] = QVariant::fromValue(m_defaultDpi);
     // Add other relevant config settings to defaultPageSettings for WebPage to apply
     m_defaultPageSettings[PAGE_SETTINGS_IGNORE_SSL_ERRORS] = QVariant::fromValue(m_config.ignoreSslErrors());
-    m_defaultPageSettings[PAGE_SETTINGS_LOCAL_URL_ACCESS_ENABLED] = QVariant::fromValue(m_config.localUrlAccessEnabled());
+    m_defaultPageSettings[PAGE_SETTINGS_LOCAL_URL_ACCESS_ENABLED]
+        = QVariant::fromValue(m_config.localUrlAccessEnabled());
     m_defaultPageSettings[PAGE_SETTINGS_OFFLINE_STORAGE_PATH] = QVariant::fromValue(m_config.offlineStoragePath());
-    m_defaultPageSettings[PAGE_SETTINGS_OFFLINE_STORAGE_QUOTA] = QVariant::fromValue(m_config.offlineStorageDefaultQuota());
+    m_defaultPageSettings[PAGE_SETTINGS_OFFLINE_STORAGE_QUOTA]
+        = QVariant::fromValue(m_config.offlineStorageDefaultQuota());
     m_defaultPageSettings[PAGE_SETTINGS_LOCAL_STORAGE_PATH] = QVariant::fromValue(m_config.localStoragePath());
     m_defaultPageSettings[PAGE_SETTINGS_LOCAL_STORAGE_QUOTA] = QVariant::fromValue(m_config.localStorageDefaultQuota());
     m_defaultPageSettings[PAGE_SETTINGS_MAX_DISK_CACHE_SIZE] = QVariant::fromValue(m_config.maxDiskCacheSize());
@@ -170,9 +172,11 @@ void Phantom::init()
     m_defaultPageSettings[PAGE_SETTINGS_SSL_PROTOCOL] = QVariant::fromValue(m_config.sslProtocol());
     m_defaultPageSettings[PAGE_SETTINGS_SSL_CIPHERS] = QVariant::fromValue(m_config.sslCiphers());
     m_defaultPageSettings[PAGE_SETTINGS_SSL_CERTIFICATES_PATH] = QVariant::fromValue(m_config.sslCertificatesPath());
-    m_defaultPageSettings[PAGE_SETTINGS_SSL_CLIENT_CERTIFICATE_FILE] = QVariant::fromValue(m_config.sslClientCertificateFile());
+    m_defaultPageSettings[PAGE_SETTINGS_SSL_CLIENT_CERTIFICATE_FILE]
+        = QVariant::fromValue(m_config.sslClientCertificateFile());
     m_defaultPageSettings[PAGE_SETTINGS_SSL_CLIENT_KEY_FILE] = QVariant::fromValue(m_config.sslClientKeyFile());
-    m_defaultPageSettings[PAGE_SETTINGS_SSL_CLIENT_KEY_PASSPHRASE] = QVariant::fromValue(m_config.sslClientKeyPassphrase());
+    m_defaultPageSettings[PAGE_SETTINGS_SSL_CLIENT_KEY_PASSPHRASE]
+        = QVariant::fromValue(m_config.sslClientKeyPassphrase());
 
     // Apply default settings to the initial page
     m_page->applySettings(m_defaultPageSettings);
@@ -181,8 +185,7 @@ void Phantom::init()
 }
 
 // public:
-Phantom* Phantom::instance()
-{
+Phantom* Phantom::instance() {
     if (!phantomInstance) {
         phantomInstance = new Phantom();
         phantomInstance->init();
@@ -190,8 +193,7 @@ Phantom* Phantom::instance()
     return phantomInstance;
 }
 
-Phantom::~Phantom()
-{
+Phantom::~Phantom() {
     // Nothing to do: cleanup is handled by QObject relationships
     // and doExit() should have been called
 }
@@ -202,8 +204,7 @@ QString Phantom::outputEncoding() const { return Terminal::instance()->getEncodi
 
 void Phantom::setOutputEncoding(const QString& encoding) { Terminal::instance()->setEncoding(encoding); }
 
-bool Phantom::execute()
-{
+bool Phantom::execute() {
     if (m_terminated) {
         return false;
     }
@@ -242,14 +243,13 @@ bool Phantom::execute()
             }
             // Utils::loadJSForDebug needs to be updated to accept WebPage*
             if (!Utils::loadJSForDebug(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page,
-                                       m_config.remoteDebugAutorun())) {
+                    m_config.remoteDebugAutorun())) {
                 m_returnValue = -1;
                 return false;
             }
         } else {
             // Utils::injectJsInFrame needs to be updated to accept WebPage*
-            if (!Utils::injectJsInFrame(
-                    m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page, true)) {
+            if (!Utils::injectJsInFrame(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page, true)) {
                 m_returnValue = -1;
                 return false;
             }
@@ -265,8 +265,7 @@ QString Phantom::libraryPath() const { return m_page->libraryPath(); }
 
 void Phantom::setLibraryPath(const QString& libraryPath) { m_page->setLibraryPath(libraryPath); }
 
-QVariantMap Phantom::version() const
-{
+QVariantMap Phantom::version() const {
     QVariantMap result;
     result["major"] = PHANTOMJS_VERSION_MAJOR;
     result["minor"] = PHANTOMJS_VERSION_MINOR;
@@ -282,8 +281,7 @@ bool Phantom::printDebugMessages() const { return m_config.printDebugMessages();
 
 bool Phantom::areCookiesEnabled() const { return m_defaultCookieJar->isEnabled(); }
 
-void Phantom::setCookiesEnabled(const bool value)
-{
+void Phantom::setCookiesEnabled(const bool value) {
     if (value) {
         m_defaultCookieJar->enable();
     } else {
@@ -292,16 +290,12 @@ void Phantom::setCookiesEnabled(const bool value)
 }
 
 // Added this new method for WebPage::pages()
-const QList<QPointer<WebPage>>& Phantom::allPages() const {
-    return m_pages;
-}
-
+const QList<QPointer<WebPage>>& Phantom::allPages() const { return m_pages; }
 
 // public slots:
 QObject* Phantom::createCookieJar(const QString& filePath) { return new CookieJar(filePath, this); }
 
-QObject* Phantom::createWebPage()
-{
+QObject* Phantom::createWebPage() {
     WebPage* page = new WebPage(this);
     page->setCookieJar(m_defaultCookieJar);
 
@@ -318,15 +312,13 @@ QObject* Phantom::createWebPage()
     return page;
 }
 
-QObject* Phantom::createWebServer()
-{
+QObject* Phantom::createWebServer() {
     WebServer* server = new WebServer(this);
     m_servers.append(server);
     return server;
 }
 
-QObject* Phantom::createFilesystem()
-{
+QObject* Phantom::createFilesystem() {
     if (!m_filesystem) {
         m_filesystem = new FileSystem(this);
     }
@@ -334,8 +326,7 @@ QObject* Phantom::createFilesystem()
     return m_filesystem;
 }
 
-QObject* Phantom::createSystem()
-{
+QObject* Phantom::createSystem() {
     if (!m_system) {
         m_system = new System(this);
 
@@ -348,8 +339,7 @@ QObject* Phantom::createSystem()
     return m_system;
 }
 
-QObject* Phantom::_createChildProcess()
-{
+QObject* Phantom::_createChildProcess() {
     if (!m_childprocess) {
         m_childprocess = new ChildProcess(this);
     }
@@ -359,21 +349,19 @@ QObject* Phantom::_createChildProcess()
 
 QObject* Phantom::createCallback() { return new Callback(this); }
 
-void Phantom::loadModule(const QString& moduleSource, const QString& filename)
-{
+void Phantom::loadModule(const QString& moduleSource, const QString& filename) {
     if (m_terminated) {
         return;
     }
 
     QString scriptSource = "(function(require, exports, module) {\n" + moduleSource + "\n}.call({}," + "require.cache['"
-                           + filename + "']._getRequire()," + "require.cache['" + filename + "'].exports," + "require.cache['" + filename
-                           + "']" + "));";
+        + filename + "']._getRequire()," + "require.cache['" + filename + "'].exports," + "require.cache['" + filename
+        + "']" + "));";
     // Now delegates to WebPage, which uses IEngineBackend
     m_page->evaluateJavaScript(scriptSource);
 }
 
-bool Phantom::injectJs(const QString& jsFilePath)
-{
+bool Phantom::injectJs(const QString& jsFilePath) {
     QString pre = "";
     qDebug() << "Phantom - injectJs:" << jsFilePath;
 
@@ -386,8 +374,7 @@ bool Phantom::injectJs(const QString& jsFilePath)
 }
 
 void Phantom::setProxy(
-    const QString& ip, const qint64& port, const QString& proxyType, const QString& user, const QString& password)
-{
+    const QString& ip, const qint64& port, const QString& proxyType, const QString& user, const QString& password) {
     qDebug() << "Set " << proxyType << " proxy to: " << ip << ":" << port;
     QNetworkProxy::ProxyType networkProxyType = QNetworkProxy::HttpProxy;
     if (proxyType == "socks5") {
@@ -406,8 +393,7 @@ void Phantom::setProxy(
     }
 }
 
-QString Phantom::proxy()
-{
+QString Phantom::proxy() {
     QNetworkProxy proxy = QNetworkProxy::applicationProxy();
     if (proxy.hostName().isEmpty()) {
         return QString();
@@ -422,8 +408,7 @@ QString Phantom::proxy()
 
 int Phantom::remoteDebugPort() const { return m_config.remoteDebugPort(); }
 
-void Phantom::exit(int code)
-{
+void Phantom::exit(int code) {
     if (m_config.debug()) {
         Terminal::instance()->cout("Phantom::exit() called but not quitting in debug mode.");
     } else {
@@ -433,8 +418,7 @@ void Phantom::exit(int code)
 
 void Phantom::debugExit(int code) { doExit(code); }
 
-QString Phantom::resolveRelativeUrl(QString url, QString base)
-{
+QString Phantom::resolveRelativeUrl(QString url, QString base) {
     QUrl u = QUrl::fromEncoded(url.toLatin1());
     QUrl b = QUrl::fromEncoded(base.toLatin1());
 
@@ -446,8 +430,7 @@ QString Phantom::fullyDecodeUrl(QString url) { return QUrl::fromEncoded(url.toLa
 // private slots:
 void Phantom::printConsoleMessage(const QString& message) { Terminal::instance()->cout(message); }
 
-void Phantom::onInitialized()
-{
+void Phantom::onInitialized() {
     // This slot is triggered when the IEngineBackend (via WebPage) is ready
     // to have JS objects exposed.
     qDebug() << "Phantom - onInitialized: Exposing 'phantom' object and loading bootstrap.js";
@@ -466,8 +449,7 @@ void Phantom::onInitialized()
     }
 }
 
-bool Phantom::setCookies(const QVariantList& cookies)
-{
+bool Phantom::setCookies(const QVariantList& cookies) {
     // Delete all the cookies from the CookieJar
     m_defaultCookieJar->clearCookies();
     // Add a new set of cookies
@@ -479,8 +461,7 @@ bool Phantom::setCookies(const QVariantList& cookies)
     return success;
 }
 
-QVariantList Phantom::cookies() const
-{
+QVariantList Phantom::cookies() const {
     // Return all the Cookies in the CookieJar, as a list of Maps
     // For consistency, consider getting this from the default page's backend.
     // For now, returning from local CookieJar.
@@ -488,8 +469,7 @@ QVariantList Phantom::cookies() const
     return m_defaultCookieJar->cookiesToMap();
 }
 
-bool Phantom::addCookie(const QVariantMap& cookie)
-{
+bool Phantom::addCookie(const QVariantMap& cookie) {
     bool success = m_defaultCookieJar->addCookieFromMap(cookie);
     if (success && m_page) {
         m_page->addCookie(cookie);
@@ -497,8 +477,7 @@ bool Phantom::addCookie(const QVariantMap& cookie)
     return success;
 }
 
-bool Phantom::deleteCookie(const QString& cookieName)
-{
+bool Phantom::deleteCookie(const QString& cookieName) {
     if (!cookieName.isEmpty()) {
         bool success = m_defaultCookieJar->deleteCookie(cookieName);
         if (success && m_page) {
@@ -509,8 +488,7 @@ bool Phantom::deleteCookie(const QString& cookieName)
     return false;
 }
 
-void Phantom::clearCookies()
-{
+void Phantom::clearCookies() {
     m_defaultCookieJar->clearCookies();
     if (m_page) {
         m_page->clearCookies();
@@ -518,8 +496,7 @@ void Phantom::clearCookies()
 }
 
 // private:
-void Phantom::doExit(int code)
-{
+void Phantom::doExit(int code) {
     emit aboutToExit(code);
     m_terminated = true;
     m_returnValue = code;
@@ -556,6 +533,4 @@ void Phantom::doExit(int code)
 // Private helper to get IEngineBackend from WebPage
 // This is added to phantom.h as a friend function or similar if needed externally.
 // It is useful during development to confirm type.
-IEngineBackend* WebPage::engineBackend() const {
-    return m_engineBackend;
-}
+IEngineBackend* WebPage::engineBackend() const { return m_engineBackend; }
