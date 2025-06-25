@@ -3,7 +3,7 @@
 #on:
 #  push:
 #    branches:
-      - main
+#      - main
 #  pull_request:
 
 #jobs:
@@ -19,7 +19,7 @@
 #          sudo apt update
 #          sudo apt install -y \
 #            g++ cmake \
-            qtbase5-dev #qttools5-dev-tools \
+#            qtbase5-dev #qttools5-dev-tools \
 #            libqt5webkit5-dev \
 #            libqt5networkauth5-dev \
 #            python3
@@ -28,7 +28,7 @@
 #        run: |
 #          mkdir -p build
 #          cd build
-          cmake .. #-DCMAKE_BUILD_TYPE=Release
+#          cmake .. #-DCMAKE_BUILD_TYPE=Release
 
 #      - name: Build PhantomJS
 #        run: |
@@ -38,7 +38,7 @@
 #      - name: Run tests
 #        run: |
 #          cd build
-          if [ -f ../test/run-tests.py ]; #then
+#          if [ -f ../test/#run-tests.py ]; #then
 #            python3 ../test/run-tests.py #-v
 #          else
 #            echo "No test runner found. #Skipping tests."
