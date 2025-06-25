@@ -12,7 +12,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Find required packages
-find_package(Qt5 5.5 REQUIRED COMPONENTS Core Network WebKitWidgets)
+# IMPORTANT: Removed WebKitWidgets and added Gui, Widgets
+find_package(Qt5 5.5 REQUIRED COMPONENTS Core Network Gui Widgets) # <--- UPDATED LINE 11
 find_package(Threads REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
@@ -27,41 +28,43 @@ list(FILTER SRC_FILES EXCLUDE REGEX ".*/tests?/.*")
 
 # Third-party sources
 set(THIRDPARTY_SOURCES
-  src/mongoose/mongoose.c
-  src/qcommandline/qcommandline.cpp
-  src/linenoise/src/linenoise.c
+    src/mongoose/mongoose.c
+    src/qcommandline/qcommandline.cpp
+    src/linenoise/src/linenoise.c
 )
 
 # Include directories
 include_directories(
-  ${PROJECT_SOURCE_DIR}/src
-  ${PROJECT_SOURCE_DIR}/src/linenoise/src
-  ${PROJECT_SOURCE_DIR}/src/mongoose
-  ${PROJECT_SOURCE_DIR}/src/qcommandline
+    ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/src/linenoise/src
+    ${PROJECT_SOURCE_DIR}/src/mongoose
+    ${PROJECT_SOURCE_DIR}/src/qcommandline
 )
 
 # Platform-specific definitions and libs
 if(WIN32)
-  set(EXTRA_LIBS ws2_32)
-  add_definitions(-DQCOMMANDLINE_STATIC)
+    set(EXTRA_LIBS ws2_32)
+    add_definitions(-DQCOMMANDLINE_STATIC)
 else()
-  set(EXTRA_LIBS dl)
+    set(EXTRA_LIBS dl)
 endif()
 
 # PhantomJS target
 add_executable(${PROJECT_NAME}
-  src/phantomjs.qrc
-  ${SRC_FILES}
-  ${THIRDPARTY_SOURCES}
+    src/phantomjs.qrc
+    ${SRC_FILES}
+    ${THIRDPARTY_SOURCES}
 )
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME}
-  Qt5::Core
-  Qt5::Network
-  Qt5::WebKitWidgets
-  Threads::Threads
-  ${EXTRA_LIBS}
+    Qt5::Core
+    Qt5::Network
+    Qt5::Gui     # <--- ADDED Qt5::Gui
+    Qt5::Widgets # <--- ADDED Qt5::Widgets
+    # Qt5::WebKitWidgets # <--- REMOVED THIS LINE
+    Threads::Threads
+    ${EXTRA_LIBS}
 )
 
 # Install target
@@ -69,7 +72,7 @@ install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
 # Test target
 add_custom_target(check
-  COMMAND ${Python3_EXECUTABLE} test/run-tests.py -v
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  COMMENT "Running PhantomJS tests..."
+    COMMAND ${Python3_EXECUTABLE} test/run-tests.py -v
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Running PhantomJS tests..."
 )
