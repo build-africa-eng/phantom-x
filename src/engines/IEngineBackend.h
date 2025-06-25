@@ -18,12 +18,12 @@ class QNetworkProxy; // Used for setNetworkProxy
  * All concrete engine implementations (e.g., QtWebKit, Playwright, etc.) must implement
  * the pure virtual functions defined here.
  */
-class IEngineBackend : public QObject
-{
+class IEngineBackend : public QObject {
     Q_OBJECT
 
 public:
-    explicit IEngineBackend(QObject* parent = nullptr) : QObject(parent) {}
+    explicit IEngineBackend(QObject* parent = nullptr)
+        : QObject(parent) { }
     virtual ~IEngineBackend() = default;
 
     // --- Core Page Navigation and Loading ---
@@ -33,7 +33,9 @@ public:
      * @param operation The operation type (e.g., QNetworkAccessManager::GetOperation).
      * @param body The content for POST requests.
      */
-    virtual void load(const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body) = 0;
+    virtual void load(
+        const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body)
+        = 0;
 
     /**
      * @brief Sets the HTML content of the main frame.
@@ -113,7 +115,9 @@ public:
      * @param inPhantomScope If true, injects within Phantom's scope.
      * @return True if successful, false otherwise.
      */
-    virtual bool injectJavaScriptFile(const QString& filePath, const QString& encoding, const QString& libraryPath, bool inPhantomScope) = 0;
+    virtual bool injectJavaScriptFile(
+        const QString& filePath, const QString& encoding, const QString& libraryPath, bool inPhantomScope)
+        = 0;
 
     /**
      * @brief Appends a script element to the page's DOM.
@@ -129,7 +133,9 @@ public:
      * @param mouseButton For mouse events (e.g., "left", "right").
      * @param modifierArg Modifier keys (e.g., "shift", "control").
      */
-    virtual void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton, const QVariant& modifierArg) = 0;
+    virtual void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton,
+        const QVariant& modifierArg)
+        = 0;
 
     /**
      * @brief Uploads files to an HTML file input element.
@@ -332,15 +338,18 @@ signals:
     void javaScriptAlertSent(const QString& msg);
     // These signals require the WebPage to provide a synchronous response back to the backend
     void javaScriptConfirmRequested(const QString& message, bool* result); // result is OUT parameter
-    void javaScriptPromptRequested(const QString& message, const QString& defaultValue, QString* result, bool* accepted); // result is OUT parameter, accepted is OUT parameter
+    void javaScriptPromptRequested(const QString& message, const QString& defaultValue, QString* result,
+        bool* accepted); // result is OUT parameter, accepted is OUT parameter
     void javascriptInterruptRequested(bool* interrupt); // interrupt is OUT parameter
-    void filePickerRequested(const QString& oldFile, QString* chosenFile, bool* handled); // chosenFile is OUT, handled is OUT
+    void filePickerRequested(
+        const QString& oldFile, QString* chosenFile, bool* handled); // chosenFile is OUT, handled is OUT
 
     void javaScriptConsoleMessageSent(const QString& message);
     void javaScriptErrorSent(const QString& message, int lineNumber, const QString& sourceID, const QString& stack);
 
     // Resource Handling (more detailed data for Playwright's power)
-    void resourceRequested(const QVariantMap& requestData, QObject* request); // QObject* is a placeholder for a request handle
+    void resourceRequested(
+        const QVariantMap& requestData, QObject* request); // QObject* is a placeholder for a request handle
     void resourceReceived(const QVariantMap& responseData);
     void resourceError(const QVariantMap& errorData);
     void resourceTimeout(const QVariantMap& errorData);
