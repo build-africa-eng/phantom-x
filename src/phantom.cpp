@@ -40,7 +40,7 @@
 #include <QScreen>
 #include <QStandardPaths>
 #include <QNetworkProxyFactory> // Standard Qt class, compatible with Qt5/Qt6
-#include <QNetworkProxy>       // Standard Qt class, compatible with Qt5/Qt6
+#include <QNetworkProxy> // Standard Qt class, compatible with Qt5/Qt6
 
 // Conditional includes for QtWebKit (Qt5) or QtWebEngine (Qt6)
 #if QT_VERSION_MAJOR == 5
@@ -57,7 +57,8 @@
 // #include <QtWebEngineCore/QWebEngineCookieStore> // For cookie handling if using QWebEnginePage's cookie store
 
 // This warning will appear if you compile with Qt6, reminding you of the necessary rewrite.
-#warning "Qt6 compatibility requires migrating from QtWebKit to QtWebEngine. QWebPage, QWebFrame, and QWebSettings are not available in Qt6. Core web functionality will be broken until WebPage is re-implemented for QtWebEngine."
+#warning                                                                                                               \
+    "Qt6 compatibility requires migrating from QtWebKit to QtWebEngine. QWebPage, QWebFrame, and QWebSettings are not available in Qt6. Core web functionality will be broken until WebPage is re-implemented for QtWebEngine."
 #endif
 
 #include "callback.h"
@@ -182,9 +183,9 @@ void Phantom::init() {
     qWarning() << "JavaScript console message and initialized signals need to be adapted for Qt6 WebEngine.";
     // Example conceptual connection (assuming WebPage has a webEnginePage() method):
     // connect(m_page->webEnginePage(), &QWebEnginePage::javaScriptConsoleMessage, this, &Phantom::printConsoleMessage);
-    // connect(m_page->webEnginePage(), &QWebEnginePage::loadFinished, this, &Phantom::onInitialized); // Or a similar signal
+    // connect(m_page->webEnginePage(), &QWebEnginePage::loadFinished, this, &Phantom::onInitialized); // Or a similar
+    // signal
 #endif
-
 
     m_defaultPageSettings[PAGE_SETTINGS_LOAD_IMAGES] = QVariant::fromValue(m_config.autoLoadImages());
     m_defaultPageSettings[PAGE_SETTINGS_JS_ENABLED] = QVariant::fromValue(true);
@@ -279,14 +280,15 @@ bool Phantom::execute() {
             }
 #if QT_VERSION_MAJOR == 5
             if (!Utils::loadJSForDebug(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), m_page->mainFrame(),
-                                       m_config.remoteDebugAutorun())) {
+                    m_config.remoteDebugAutorun())) {
 #elif QT_VERSION_MAJOR == 6
             // mainFrame() does not exist in Qt6 for QWebEnginePage
             // Utils::loadJSForDebug would need to be updated to take QWebEnginePage*
             qWarning() << "loadJSForDebug needs adaptation for Qt6 WebEngine. mainFrame() does not exist.";
             // Placeholder: This will not work until Utils::loadJSForDebug is updated for Qt6.
-            if (!Utils::loadJSForDebug(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), Q_NULLPTR, // Pass nullptr or a conceptual WebEnginePage
-                                       m_config.remoteDebugAutorun())) {
+            if (!Utils::loadJSForDebug(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(),
+                    Q_NULLPTR, // Pass nullptr or a conceptual WebEnginePage
+                    m_config.remoteDebugAutorun())) {
 #endif
                 m_returnValue = -1;
                 return false;
@@ -300,8 +302,7 @@ bool Phantom::execute() {
             // Utils::injectJsInFrame would need to be updated to take QWebEnginePage*
             qWarning() << "injectJsInFrame needs adaptation for Qt6 WebEngine. mainFrame() does not exist.";
             // Placeholder: This will not work until Utils::injectJsInFrame is updated for Qt6.
-            if (!Utils::injectJsInFrame(
-                    m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), Q_NULLPTR, true)) {
+            if (!Utils::injectJsInFrame(m_config.scriptFile(), m_scriptFileEnc, QDir::currentPath(), Q_NULLPTR, true)) {
 #endif
                 m_returnValue = -1;
                 return false;
