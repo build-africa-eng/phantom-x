@@ -33,99 +33,68 @@
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QList>
+#include <QSslError>
+#include <QNetworkProxy>
 #include <QSslConfiguration>
-#include <QStringList>
-#include <QTimer>
+#include <QVariantMap>
 
+// Forward declarations
+class CookieJar;
 class Config;
-class QAuthenticator;
-class QNetworkDiskCache;
-class QSslConfiguration;
 
-class TimeoutTimer : public QTimer {
+class NetworkAccessManager : public QNetworkAccessManager
+{
     Q_OBJECT
 
 public:
-    TimeoutTimer(QObject* parent = 0);
-    QNetworkReply* reply;
-    QVariantMap data;
-};
+    explicit NetworkAccessManager(QObject* parent = nullptr);
+    ~NetworkAccessManager();
 
-class JsNetworkRequest : public QObject {
-    Q_OBJECT
+    void setCookieJar(CookieJar* cookieJar);
 
-public:
-    JsNetworkRequest(QNetworkRequest* request, QObject* parent = 0);
-    Q_INVOKABLE void abort();
-    Q_INVOKABLE void changeUrl(const QString& url);
-    Q_INVOKABLE bool setHeader(const QString& name, const QVariant& value);
-
-private:
-    QNetworkRequest* m_networkRequest;
-};
-
-class NoFileAccessReply : public QNetworkReply {
-    Q_OBJECT
-
-public:
-    NoFileAccessReply(QObject* parent, const QNetworkRequest& req, const QNetworkAccessManager::Operation op);
-    ~NoFileAccessReply();
-    void abort() { }
-
-protected:
-    qint64 readData(char*, qint64) { return -1; }
-};
-
-class NetworkAccessManager : public QNetworkAccessManager {
-    Q_OBJECT
-public:
-    NetworkAccessManager(QObject* parent, const Config* config);
-    void setUserName(const QString& userName);
-    void setPassword(const QString& password);
-    void setMaxAuthAttempts(int maxAttempts);
-    void setResourceTimeout(int resourceTimeout);
-    void setCustomHeaders(const QVariantMap& headers);
-    QVariantMap customHeaders() const;
-    QStringList captureContent() const;
-    void setCaptureContent(const QStringList& patterns);
-
-    void setCookieJar(QNetworkCookieJar* cookieJar);
-
-protected:
-    bool m_ignoreSslErrors;
-    bool m_localUrlAccessEnabled;
-    int m_authAttempts;
-    int m_maxAuthAttempts;
-    int m_resourceTimeout;
-    QString m_userName;
-    QString m_password;
-    QNetworkReply* createRequest(Operation op, const QNetworkRequest& req, QIODevice* outgoingData = 0);
-    void handleFinished(QNetworkReply* reply, const QVariant& status, const QVariant& statusText);
+    void setIgnoreSslErrors(bool ignore);
+    void setSslProtocol(const QString& protocolName);
+    void setSslCiphers(const QString& ciphers);
+    void setSslCertificatesPath(const QString& path);
+    void setSslClientCertificateFile(const QString& path);
+    void setSslClientKeyFile(const QString& path);
+    void setSslClientKeyPassphrase(const QByteArray& passphrase);
+    void setResourceTimeout(int timeoutMs);
+    void setMaxAuthAttempts(int attempts);
+    void setDiskCacheEnabled(bool enabled);
+    void setMaxDiskCacheSize(int size);
+    void setDiskCachePath(const QString& path);
 
 signals:
-    void resourceRequested(const QVariant& data, QObject*);
-    void resourceReceived(const QVariant& data);
-    void resourceError(const QVariant& data);
-    void resourceTimeout(const QVariant& data);
+    void resourceRequested(QVariant requestData, QObject* reply);
+    void resourceReceived(QVariant responseData);
+    void resourceError(QVariant errorData);
+    void resourceTimeout(QVariant timeoutData);
+    void authenticationRequired(QNetworkReply* reply, QAuthenticator* authenticator);
+    void proxyAuthenticationRequired(const QNetworkProxy& proxy, QAuthenticator* authenticator);
+
+protected:
+    QNetworkReply* createRequest(QNetworkAccessManager::Operation op, const QNetworkRequest& request, QIODevice* outgoingData = nullptr) override;
 
 private slots:
-    void handleStarted();
     void handleFinished(QNetworkReply* reply);
-    void provideAuthentication(QNetworkReply* reply, QAuthenticator* authenticator);
-    void handleSslErrors(const QList<QSslError>& errors);
-    void handleNetworkError();
-    void handleTimeout();
+    void handleSslErrors(QNetworkReply* reply, const QList<QSslError>& errors);
+    void handleAuthenticationRequired(QNetworkReply* reply, QAuthenticator* authenticator);
+    void handleProxyAuthenticationRequired(const QNetworkProxy& proxy, QAuthenticator* authenticator);
+    void handleReadProgress(qint64 bytesReceived, qint64 bytesTotal);
+    void handleUploadProgress(qint64 bytesSent, qint64 bytesTotal);
+    void handleEncrypted(QNetworkReply* reply);
+    void handleRedirected(QNetworkReply* reply, const QUrl& url);
 
 private:
-    void prepareSslConfiguration(const Config* config);
-    QVariantList getHeadersFromReply(const QNetworkReply* reply);
+    Config* m_config;
+    CookieJar* m_cookieJar;
 
-    QHash<QNetworkReply*, int> m_ids;
-    QSet<QNetworkReply*> m_started;
-    int m_idCounter;
-    QNetworkDiskCache* m_networkDiskCache;
-    QVariantMap m_customHeaders;
-    QSslConfiguration m_sslConfiguration;
+    bool m_ignoreSslErrors;
+    int m_resourceTimeout;
+    int m_maxAuthAttempts;
 };
 
 #endif // NETWORKACCESSMANAGER_H
+
