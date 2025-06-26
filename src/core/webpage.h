@@ -184,6 +184,12 @@ public:
         const QString& msg, const QString& defaultValue, QString* result); // Will use m_jsPromptCallback
     void javascriptInterrupt(); // Will use m_jsInterruptCallback
 
+    // *******************************************************************
+    // THIS IS THE CRITICAL LINE THAT MUST BE HERE, UNDER 'public:'.
+    // It enables other classes (like Phantom) to access the underlying engine backend.
+    IEngineBackend* engineBackend() const;
+    // *******************************************************************
+
 signals:
     // --- Core WebPage Signals (re-emitted from IEngineBackend signals) ---
     void loadStarted();
