@@ -15,7 +15,8 @@
 
 class CookieJar; // Forward declare
 
-class PlaywrightEngineBackend : public IEngineBackend {
+class PlaywrightEngineBackend : public IEngineBackend
+{
     Q_OBJECT
 
 public:
@@ -29,8 +30,7 @@ public:
     QString toPlainText() const override;
     QString windowName() const override;
 
-    void load(
-        const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body) override;
+    void load(const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body) override;
     void setHtml(const QString& html, const QUrl& baseUrl) override;
     void reload() override;
     void stop() override;
@@ -52,8 +52,7 @@ public:
     void setZoomFactor(qreal zoom) override;
 
     QVariant evaluateJavaScript(const QString& code) override;
-    bool injectJavaScriptFile(
-        const QString& jsFilePath, const QString& encoding, const QString& libraryPath, bool forEachFrame) override;
+    bool injectJavaScriptFile(const QString& jsFilePath, const QString& encoding, const QString& libraryPath, bool forEachFrame) override;
     void exposeQObject(const QString& name, QObject* object) override;
     void appendScriptElement(const QString& scriptUrl) override;
 
@@ -101,8 +100,7 @@ public:
     QString frameName() const override;
     QString focusedFrameName() const override;
 
-    void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton,
-        const QVariant& modifierArg) override;
+    void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton, const QVariant& modifierArg) override;
     void uploadFile(const QString& selector, const QStringList& fileNames) override;
 
     int showInspector(int port) override;
@@ -161,16 +159,14 @@ private:
     void emitUrlChanged(const QUrl& url);
     void emitTitleChanged(const QString& title);
     void emitContentsChanged();
-    void emitNavigationRequested(
-        const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
+    void emitNavigationRequested(const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
     void emitPageCreated(IEngineBackend* newPageBackend);
     void emitWindowCloseRequested();
     void emitJavaScriptAlertSent(const QString& msg);
     void emitJavaScriptConsoleMessageSent(const QString& message);
     void emitJavaScriptErrorSent(const QString& message, int lineNumber, const QString& sourceID, const QString& stack);
     void emitJavaScriptConfirmRequested(const QString& message, bool* result); // result is an out-parameter
-    void emitJavaScriptPromptRequested(const QString& message, const QString& defaultValue, QString* result,
-        bool* accepted); // result & accepted are out-parameters
+    void emitJavaScriptPromptRequested(const QString& message, const QString& defaultValue, QString* result, bool* accepted); // result & accepted are out-parameters
     void emitJavascriptInterruptRequested(bool* interrupt);
     void emitFilePickerRequested(const QString& oldFile, QString* chosenFile, bool* handled);
     void emitResourceRequested(const QVariantMap& requestData, QObject* request);
