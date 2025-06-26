@@ -31,7 +31,6 @@
 #include "cookiejar.h"
 #include "core/config.h"
 #include "core/phantom.h"
-#include "webpage.moc"
 
 #include <QDataStream>
 #include <QDateTime>
