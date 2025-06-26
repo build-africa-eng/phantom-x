@@ -109,7 +109,7 @@ public:
     void applySettings(const QVariantMap& def);
     // CRITICAL FIX: Make setProxy accept QNetworkProxy and add proxy() getter
     void setProxy(const QNetworkProxy& proxy); // FIXED: Signature updated
-    QNetworkProxy proxy() const;              // FIXED: Added getter for proxy
+    QNetworkProxy proxy() const; // FIXED: Added getter for proxy
     QString userAgent() const;
     void setUserAgent(const QString& ua);
     void setNavigationLocked(bool lock);
@@ -176,8 +176,7 @@ public:
     // --- Internal Callback Handlers ---
     QString filePicker(const QString& oldFile);
     bool javaScriptConfirm(const QString& msg);
-    bool javaScriptPrompt(
-        const QString& msg, const QString& defaultValue, QString* result);
+    bool javaScriptPrompt(const QString& msg, const QString& defaultValue, QString* result);
     void javascriptInterrupt();
 
     IEngineBackend* engineBackend() const; // Ensure this is PUBLIC
