@@ -10,6 +10,7 @@
 #include <QMetaProperty>
 #include <QMetaObject>
 #include "consts.h"
+#include "pagesettings.h"
 
 // Define the global flags array for QCommandLine here
 // Format: { name, type, flags, description, valueName, defaultValue }
