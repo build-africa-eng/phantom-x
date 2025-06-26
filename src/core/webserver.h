@@ -28,258 +28,54 @@
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef WEBPAGE_H
-#define WEBPAGE_H
+#ifndef WEBSERVER_H
+#define WEBSERVER_H
 
 #include <QObject>
-#include <QPoint>
-#include <QRect>
-#include <QSize>
-#include <QString>
-#include <QVariant>
-#include <QVariantList>
-#include <QVariantMap>
-#include <QPointer>
-#include <QNetworkRequest>
-#include <QNetworkAccessManager>
-#include <QNetworkProxy> // NEW: For QNetworkProxy
+#include <QHostAddress>
+#include <QPointer> // For safe pointers to other QObjects like WebPage
 
-#include "ienginebackend.h" // Assuming ienginebackend.h is in src/core/
+// Forward declarations to avoid MOC redefinition issues
+class WebPage; // <-- NEW: Forward declare WebPage instead of including its header
+class WebServerPrivate; // Assuming a pimpl pattern
 
-#include "cookiejar.h"
-
-// Forward declarations
-class Callback;
-class Phantom;
-class QPdfWriter;
-
-class WebPage : public QObject {
+class WebServer : public QObject
+{
     Q_OBJECT
 
 public:
-    // Constructor: Add IEngineBackend* for new pages
-    explicit WebPage(QObject* parent = nullptr, const QUrl& baseUrl = QUrl(), IEngineBackend* backend = nullptr);
-    ~WebPage() override;
+    explicit WebServer(QObject* parent = nullptr);
+    ~WebServer();
 
-    // --- Core Properties ---
-    QString content() const;
-    void setContent(const QString& content);
-    void setContent(const QString& content, const QString& baseUrl);
-    QString frameContent() const;
-    void setFrameContent(const QString& content);
-    void setFrameContent(const QString& content, const QString& baseUrl);
-    QString title() const;
-    QString frameTitle() const;
-    QString url() const;
-    QString frameUrl() const;
-    bool loading() const;
-    int loadingProgress() const;
-    QString plainText() const;
-    QString framePlainText() const;
-    QString windowName() const;
+    Q_PROPERTY(QHostAddress address READ address WRITE setAddress NOTIFY addressChanged)
+    Q_PROPERTY(int port READ port WRITE setPort NOTIFY portChanged)
+    Q_PROPERTY(bool listening READ listening NOTIFY listeningChanged)
 
-    // --- Navigation ---
-    bool canGoBack();
-    bool goBack();
-    bool canGoForward();
-    bool goForward();
-    bool go(int historyItemRelativeIndex);
-    void reload();
-    void stop();
-    void openUrl(const QString& address, const QVariant& op, const QVariantMap& settings);
+    QHostAddress address() const;
+    void setAddress(const QHostAddress& address);
 
-    // --- Rendering ---
-    bool render(const QString& fileName, const QVariantMap& option);
-    QString renderBase64(const QByteArray& format);
-    void setViewportSize(const QVariantMap& size);
-    QVariantMap viewportSize() const;
-    void setClipRect(const QVariantMap& size);
-    QVariantMap clipRect() const;
-    void setScrollPosition(const QVariantMap& size);
-    QVariantMap scrollPosition() const;
-    void setPaperSize(const QVariantMap& size);
-    QVariantMap paperSize() const;
-    void setZoomFactor(qreal zoom);
-    qreal zoomFactor() const;
+    int port() const;
+    void setPort(int port);
 
-    // --- JavaScript Execution ---
-    QVariant evaluateJavaScript(const QString& code);
-    bool injectJs(const QString& jsFilePath);
+    bool listening() const;
 
-    // --- Settings ---
-    void applySettings(const QVariantMap& def);
-    void setProxy(const QNetworkProxy& proxy); // MODIFIED: now takes QNetworkProxy
-    QNetworkProxy proxy() const; // NEW: Getter for current proxy
-    QString userAgent() const;
-    void setNavigationLocked(bool lock);
-    bool navigationLocked();
-    void setCustomHeaders(const QVariantMap& headers);
-    QVariantMap customHeaders() const;
+    Q_INVOKABLE bool listen(int port = 8080, const QHostAddress& address = QHostAddress::Any);
+    Q_INVOKABLE void close();
 
-    // --- Cookie Management ---
-    void setCookieJar(CookieJar* cookieJar);
-    void setCookieJarFromQObject(QObject* cookieJar);
-    CookieJar* cookieJar();
-    bool setCookies(const QVariantList& cookies);
-    QVariantList cookies() const;
-    bool addCookie(const QVariantMap& cookie);
-    bool deleteCookie(const QString& cookieName);
-    void clearCookies();
-
-    // --- Other Settings/Properties ---
-    QString libraryPath() const;
-    void setLibraryPath(const QString& libraryPath);
-    QString offlineStoragePath() const;
-    int offlineStorageQuota() const;
-
-    // --- Frame and Page Management ---
-    QObjectList pages() const;
-    QStringList pagesWindowName() const;
-    QObject* getPage(const QString& windowName) const;
-    bool ownsPages() const;
-    void setOwnsPages(const bool owns);
-    int framesCount() const;
-    int childFramesCount() const;
-    QStringList framesName() const;
-    QStringList childFramesName() const;
-    bool switchToFrame(const QString& frameName);
-    bool switchToChildFrame(const QString& frameName);
-    bool switchToFrame(int framePosition);
-    bool switchToChildFrame(int framePosition);
-    void switchToMainFrame();
-    bool switchToParentFrame();
-    void switchToFocusedFrame();
-    QString frameName() const;
-    QString currentFrameName() const;
-    QString focusedFrameName() const;
-
-    // --- Event Handling ---
-    void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton,
-        const QVariant& modifierArg);
-    void _uploadFile(const QString& selector, const QStringList& fileNames);
-    void stopJavaScript();
-    void clearMemoryCache();
-
-    // --- Callbacks ---
-    QObject* _getGenericCallback();
-    QObject* _getFilePickerCallback();
-    QObject* _getJsConfirmCallback();
-    QObject* _getJsPromptCallback();
-    QObject* _getJsInterruptCallback();
-
-    // --- DevTools ---
-    int showInspector(const int port);
-
-    // --- Internal Callback Handlers ---
-    QString filePicker(const QString& oldFile);
-    bool javaScriptConfirm(const QString& msg);
-    bool javaScriptPrompt(const QString& msg, const QString& defaultValue, QString* result);
-    void javascriptInterrupt();
-
-    // NEW: Public getter for m_engineBackend
-    IEngineBackend* engineBackend() const;
+    Q_INVOKABLE void newHandler(const QString& url, QObject* callback);
+    Q_INVOKABLE void removeHandler(const QString& url);
+    Q_INVOKABLE void clearHandlers();
 
 signals:
-    void loadStarted();
-    void loadFinished(const QString& status);
-    void initialized();
-    void urlChanged(const QString& url);
-    void navigationRequested(const QVariant& url, const QVariant& navigationType, bool willNavigate, bool isMainFrame);
-    void rawPageCreated(WebPage* newPage);
-
-    void javaScriptAlertSent(const QString& message);
-    void javaScriptConsoleMessageSent(const QString& message);
-    void javaScriptErrorSent(const QString& message, int lineNumber, const QString& sourceID, const QString& stack);
-
-    void resourceRequested(QVariant requestData, QObject* reply);
-    void resourceReceived(QVariant responseData);
-    void resourceError(QVariant errorData);
-    void resourceTimeout(QVariant timeoutData);
-
-    void repaintRequested(int x, int y, int width, int height);
-
-    void closing(WebPage* page);
-
-private slots:
-    void handleEngineLoadStarted(const QUrl& url);
-    void handleEngineLoadFinished(bool success, const QUrl& url);
-    void handleEngineLoadingProgress(int progress);
-    void handleEngineUrlChanged(const QUrl& url);
-    void handleEngineTitleChanged(const QString& title);
-    void handleEngineContentsChanged();
-    void handleEngineNavigationRequested(
-        const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
-    void handleEnginePageCreated(IEngineBackend* newPageBackend);
-    void handleEngineWindowCloseRequested();
-
-    void handleEngineJavaScriptAlertSent(const QString& msg);
-    void handleEngineJavaScriptConfirmRequested(const QString& message, bool* result);
-    void handleEngineJavaScriptPromptRequested(
-        const QString& message, const QString& defaultValue, QString* result, bool* accepted);
-    void handleEngineJavascriptInterruptRequested(bool* interrupt);
-    void handleEngineFilePickerRequested(const QString& oldFile, QString* chosenFile, bool* handled);
-
-    void handleEngineResourceRequested(const QVariantMap& requestData, QObject* request);
-    void handleEngineResourceReceived(const QVariantMap& responseData);
-    void handleEngineResourceError(const QVariantMap& errorData);
-    void handleEngineResourceTimeout(const QVariantMap& errorData);
-
-    void handleEngineRepaintRequested(const QRect& dirtyRect);
-
-    void finish(bool ok);
-    void changeCurrentFrame(IEngineBackend* frameBackend);
-    void handleCurrentFrameDestroyed();
+    void addressChanged(const QHostAddress& address);
+    void portChanged(int port);
+    void listeningChanged(bool listening);
+    void requestReceived(QObject* request, QObject* response); // Might emit QObjects for JS interaction
 
 private:
-    IEngineBackend* m_engineBackend;
-    QPointer<IEngineBackend> m_currentFrameBackend;
-
-    bool m_navigationLocked;
-    QPoint m_mousePos;
-    bool m_ownsPages;
-    int m_loadingProgress;
-    bool m_shouldInterruptJs;
-
-    Callback* m_genericCallback;
-    Callback* m_filePickerCallback;
-    Callback* m_jsConfirmCallback;
-    Callback* m_jsPromptCallback;
-    Callback* m_jsInterruptCallback;
-
-    CookieJar* m_cookieJar;
-    QNetworkProxy m_currentProxy; // NEW: To store the current proxy configuration
-    QObject* m_inspector;
-    qreal m_dpi;
-
-    QString m_cachedTitle;
-    QUrl m_cachedUrl;
-    QString m_cachedContent;
-    QString m_cachedPlainText;
-    QSize m_cachedViewportSize;
-    QRect m_cachedClipRect;
-    QPoint m_cachedScrollPosition;
-    QString m_cachedUserAgent;
-    QVariantMap m_cachedCustomHeaders;
-    qreal m_cachedZoomFactor;
-    QString m_cachedWindowName;
-    QString m_cachedOfflineStoragePath;
-    int m_cachedOfflineStorageQuota;
-    QString m_cachedLocalStoragePath;
-    int m_cachedLocalStorageQuota;
-    int m_cachedFramesCount;
-    QStringList m_cachedFramesName;
-    QString m_cachedFrameName;
-    QString m_cachedFocusedFrameName;
-
-    QVariantMap m_paperSize;
-    QString m_libraryPath;
-
-    qreal stringToPointSize(const QString& string) const;
-    qreal printMargin(const QVariantMap& map, const QString& key);
-    qreal getHeight(const QVariantMap& map, const QString& key) const;
-    QString header(int page, int numPages);
-    QString footer(int page, int numPages);
-    void _appendScriptElement(const QString& scriptUrl);
+    WebServerPrivate* d_ptr;
+    Q_DECLARE_PRIVATE(WebServer);
 };
 
-#endif // WEBPAGE_H
+#endif // WEBSERVER_H
+
