@@ -41,7 +41,8 @@
 
 // REMOVE THIS LINE: #include <QWebSettings> // No longer used after WebKit removal
 
-// extern const struct QCommandLineConfigEntry flags[]; // Declared in config.cpp, might not be needed here if only main parses it
+// extern const struct QCommandLineConfigEntry flags[]; // Declared in config.cpp, might not be needed here if only main
+// parses it
 
 // Forward declarations if any (e.g., for custom message handlers)
 
