@@ -22,8 +22,7 @@ class WebServer;
 class QCommandLine;
 class IEngineBackend;
 
-class Phantom : public QObject
-{
+class Phantom : public QObject {
     Q_OBJECT
 
 public:
@@ -42,7 +41,8 @@ public:
     Q_PROPERTY(QStringList args READ args CONSTANT)
     Q_PROPERTY(QStringList casperPaths READ casperPaths WRITE setCasperPaths NOTIFY casperPathsChanged)
     Q_PROPERTY(QStringList env READ env CONSTANT)
-    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY defaultPageSettingsChanged)
+    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY
+            defaultPageSettingsChanged)
     Q_PROPERTY(bool cookiesEnabled READ cookiesEnabled WRITE setCookiesEnabled NOTIFY cookiesEnabledChanged)
     Q_PROPERTY(QString cookiesFile READ cookiesFile WRITE setCookiesFile NOTIFY cookiesFileChanged)
     Q_PROPERTY(int remoteDebugPort READ remoteDebugPort WRITE setRemoteDebugPort NOTIFY remoteDebugPortChanged)
@@ -59,7 +59,8 @@ public:
     Q_INVOKABLE void clearCookies();
     Q_INVOKABLE QVariantList cookies();
     Q_INVOKABLE void injectJs(const QString& jsFilePath);
-    Q_INVOKABLE void setProxy(const QString& ip, const qint64& port = 0, const QString& proxyType = QString(), const QString& user = QString(), const QString& password = QString());
+    Q_INVOKABLE void setProxy(const QString& ip, const qint64& port = 0, const QString& proxyType = QString(),
+        const QString& user = QString(), const QString& password = QString());
     Q_INVOKABLE void setProxyAuth(const QString& user, const QString& password);
     Q_INVOKABLE void debugExit(int code = 0);
     Q_INVOKABLE void addEventListener(const QString& name, QObject* callback);
