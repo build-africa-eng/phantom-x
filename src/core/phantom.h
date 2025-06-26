@@ -96,7 +96,7 @@ public:
     Q_INVOKABLE void debugExit(int code = 0);
     Q_INVOKABLE void addEventListener(const QString& name, QObject* callback);
     Q_INVOKABLE void removeEventListener(const QString& name, QObject* callback);
-    Q_INVOKABLE QObject* evaluate(const QString& func, const QVariantList& args);
+    Q_INVOKABLE QVariant evaluate(const QString& func, const QVariantList& args);
 
     // --- Getters for Q_PROPERTY ---
     QString version() const;
