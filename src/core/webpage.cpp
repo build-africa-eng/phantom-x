@@ -48,6 +48,8 @@
 
 #include "cookiejar.h"
 
+#include "webpage.moc"
+
 // Forward declarations
 class Callback;
 class Phantom;
