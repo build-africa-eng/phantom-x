@@ -331,13 +331,13 @@ QVariant Config::get(const QString& key) const { return m_settings.value(key); }
 #define IMPLEMENT_CONFIG_GETTER(TYPE, NAME, VARNAME)                                                                   \
     TYPE Config::NAME() const { return m_settings.value(VARNAME).value<TYPE>(); }
 
-#define IMPLEMENT_CONFIG_SETTER(TYPE, NAME, VARNAME, SIGNAL)                      \
-    void Config::set##NAME(const TYPE& value) {                                   \
-        if (m_settings.value(VARNAME).value<TYPE>() != value) {                   \
-            m_settings[VARNAME] = QVariant::fromValue(value);                     \
-            emit SIGNAL(value);                                                   \
-        }                                                                         \
-    }                                                                                                           
+#define IMPLEMENT_CONFIG_SETTER(TYPE, NAME, VARNAME, SIGNAL)                                                           \
+    void Config::set##NAME(const TYPE& value) {                                                                        \
+        if (m_settings.value(VARNAME).value<TYPE>() != value) {                                                        \
+            m_settings[VARNAME] = QVariant::fromValue(value);                                                          \
+            emit SIGNAL(value);                                                                                        \
+        }                                                                                                              \
+    }
 
 IMPLEMENT_CONFIG_GETTER(bool, debug, "debug")
 IMPLEMENT_CONFIG_SETTER(bool, Debug, "debug", debugChanged)
