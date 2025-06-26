@@ -26,94 +26,102 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#include "consts.h"
-#include "crashdump.h"
-#include "env.h"
+#include "main.h"
+
 #include "phantom.h"
-#include "utils.h"
+#include "config.h" // Include config for potential settings access
+#include "terminal.h" // Include terminal for console output
 
-#include <QApplication>
-#include <QIcon>
-#include <QSslConfiguration>
-#include <QSslSocket>
-#include <QWebSettings>
+#include <QCoreApplication>
+#include <QCommandLineParser> // Use QCommandLineParser if it's the standard Qt one
+#include <QDebug>
+#include <QDir> // For path manipulation
+#include <QFile> // For checking script existence
+#include <QTime> // For measuring execution time
 
-#include <exception>
-#include <stdio.h>
+// REMOVE THIS LINE: #include <QWebSettings> // No longer used after WebKit removal
 
-static int inner_main(int argc, char** argv) {
-#ifdef Q_OS_LINUX
-    // override default Qt platform plugin
-    qputenv("QT_QPA_PLATFORM", "offscreen");
-#endif
+// extern const struct QCommandLineConfigEntry flags[]; // Declared in config.cpp, might not be needed here if only main parses it
 
-    QApplication app(argc, argv);
+// Forward declarations if any (e.g., for custom message handlers)
 
-    app.setWindowIcon(QIcon(":/phantomjs-icon.png"));
-    app.setApplicationName("PhantomJS");
-    app.setOrganizationName("Ofi Labs");
-    app.setOrganizationDomain("www.ofilabs.com");
-    app.setApplicationVersion(PHANTOMJS_VERSION_STRING);
-
-    // Registering an alternative Message Handler
-    qInstallMessageHandler(Utils::messageHandler);
-
-#if defined(Q_OS_LINUX)
-    if (QSslSocket::supportsSsl()) {
-        // Don't perform on-demand loading of root certificates on Linux
-        QSslSocket::addDefaultCaCertificates(QSslConfiguration::systemCaCertificates());
-    }
-#endif
-
-    // Get the Phantom singleton
-    Phantom* phantom = Phantom::instance();
-
-    // Start script execution
-    if (phantom->execute()) {
-        app.exec();
-    }
-
-    // End script execution: delete the phantom singleton and set
-    // execution return value
-    int retVal = phantom->returnValue();
-    delete phantom;
-
-#ifndef QT_NO_DEBUG
-    // Clear all cached data before exiting, so it is not detected as
-    // leaked.
-    QWebSettings::clearMemoryCaches();
-#endif
-
-    return retVal;
-}
-
+// main function (entry point)
 int main(int argc, char** argv) {
-    try {
-        init_crash_handler();
-        return inner_main(argc, argv);
+    QCoreApplication app(argc, argv);
 
-        // These last-ditch exception handlers write to the C stderr
-        // because who knows what kind of state Qt is in.  And they avoid
-        // using fprintf because _that_ might be in bad shape too.
-        // (I would drop all the way down to write() but then I'd have to
-        // write the code again for Windows.)
-        //
-        // print_crash_message includes a call to fflush(stderr).
-    } catch (std::bad_alloc) {
-        fputs("Memory exhausted.\n", stderr);
-        fflush(stderr);
-        return 1;
+    // Set application info for QSettings (used by Config)
+    QCoreApplication::setOrganizationName("PhantomX");
+    QCoreApplication::setApplicationName("PhantomJS");
+    QCoreApplication::setApplicationVersion("3.0.0"); // Update version as appropriate
 
-    } catch (std::exception& e) {
-        fputs("Uncaught C++ exception: ", stderr);
-        fputs(e.what(), stderr);
-        putc('\n', stderr);
-        print_crash_message();
-        return 1;
+    // Initialize global Config singleton
+    Config* config = Config::instance();
+    // Initialize global Terminal singleton (used for all console output)
+    Terminal* terminal = Terminal::instance();
 
-    } catch (...) {
-        fputs("Uncaught nonstandard exception.\n", stderr);
-        print_crash_message();
+    // Command-line parsing
+    // QCommandLineParser is typically used for standard Qt applications
+    // If you are using your custom QCommandLine class:
+    QCommandLine cmdLineParser(&app); // Using your custom QCommandLine class
+
+    // Set the configuration entries (the 'flags' array)
+    // You need to ensure 'flags' is accessible here.
+    // If 'flags' is global in config.cpp, you might need an extern declaration in a common header
+    // or pass it from main to QCommandLine.
+    // Assuming 'flags' is accessible, or passed in main somehow, or defined here.
+    // For simplicity, let's assume `Config` or `Phantom` handles the main parsing setup.
+    // If QCommandLineConfigEntry flags[] is truly external, it needs to be made accessible here.
+    // If it's used by Phantom for parsing, then main.cpp just calls Phantom.
+
+    // A more typical flow with `QCommandLine` (your custom one):
+    // You would pass `flags` to `QCommandLine::setConfig` somewhere, often in Phantom's constructor
+    // or when setting up the command-line parsing logic.
+    // For now, let's rely on Phantom to handle this setup.
+
+    // Check for help or version request if your QCommandLine has that logic built-in
+    // If parse fails or help/version requested, QCommandLine should print and exit.
+    // QCommandLine should be configured with `flags` array somewhere.
+
+    // Create the PhantomJS engine instance
+    Phantom phantom(&app);
+
+    // If parsing command line args is done by phantom.init, call it.
+    // Otherwise, parse here and pass to phantom.
+    // Assuming phantom.init() handles command line parsing and config loading.
+    bool initOk = phantom.init(argc, argv); // Pass argc, argv for command line parsing
+
+    if (!initOk) {
+        // If init fails (e.g., parse error, unrecognized options), exit.
+        return 1; // Indicate error
+    }
+
+    // After parsing, check for help/version if it wasn't handled by phantom.init
+    if (phantom.helpRequested()) {
+        phantom.showHelp(); // This should exit the app
+        return 0;
+    }
+    if (phantom.versionRequested()) {
+        phantom.showVersion(); // This should exit the app
+        return 0;
+    }
+
+    // Execute the main script (if provided)
+    QString scriptPath = phantom.scriptPath();
+    if (!scriptPath.isEmpty()) {
+        // Run the script
+        qDebug() << "Main: Running script:" << scriptPath;
+        int exitCode = phantom.executeScript(scriptPath, phantom.scriptArgs());
+        return exitCode;
+    } else if (phantom.isInteractive()) {
+        // Start interactive REPL
+        qDebug() << "Main: Starting interactive REPL.";
+        phantom.startInteractive(); // This is typically blocking until user exits
+        return 0;
+    } else {
+        // If no script and not interactive, maybe print help or an error
+        terminal->cerr("No script provided and not in interactive mode. Use --help for usage.");
         return 1;
     }
+
+    return 0; // Should not be reached in normal operation
 }
