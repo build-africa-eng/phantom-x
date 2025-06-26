@@ -6,21 +6,20 @@
 #include <QVariant>
 #include <QFlags>
 
-class QCommandLine : public QObject
-{
+class QCommandLine : public QObject {
     Q_OBJECT
 public:
     enum Type {
         Switch = 0x01, /**< argument has no value */
-        Param = 0x02   /**< argument has a value */
+        Param = 0x02 /**< argument has a value */
     };
     Q_DECLARE_FLAGS(Types, Type)
 
     enum Flag {
-        Default = 0x00,    /**< default options */
-        Optional = 0x01,   /**< optional argument */
-        Multiple = 0x02,   /**< argument can be used multiple times */
-        Positional = 0x04  /**< positional argument */
+        Default = 0x00, /**< default options */
+        Optional = 0x01, /**< optional argument */
+        Multiple = 0x02, /**< argument can be used multiple times */
+        Positional = 0x04 /**< positional argument */
     };
     Q_DECLARE_FLAGS(Flags, Flag)
 
@@ -70,6 +69,7 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(QCommandLine::Types)
 Q_DECLARE_OPERATORS_FOR_FLAGS(QCommandLine::Flags)
 
 // This macro must match the struct definition above
-#define QCOMMANDLINE_CONFIG_ENTRY_END { nullptr, QCommandLine::Type(0), QCommandLine::Flag(0), nullptr, nullptr, nullptr }
+#define QCOMMANDLINE_CONFIG_ENTRY_END                                                                                  \
+    { nullptr, QCommandLine::Type(0), QCommandLine::Flag(0), nullptr, nullptr, nullptr }
 
 #endif // QCOMMANDLINE_H
