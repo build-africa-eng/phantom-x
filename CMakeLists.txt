@@ -36,6 +36,8 @@ set(THIRDPARTY_SOURCES
 # Include directories
 include_directories(
     ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/src/engines
+    ${PROJECT_SOURCE_DIR}/src/core
     ${PROJECT_SOURCE_DIR}/src/linenoise/src
     ${PROJECT_SOURCE_DIR}/src/mongoose
     ${PROJECT_SOURCE_DIR}/src/qcommandline
