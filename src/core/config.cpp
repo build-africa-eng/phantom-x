@@ -31,592 +31,389 @@
 */
 
 #include "config.h"
-#include "consts.h" // For PAGE_SETTINGS constants
-#include "terminal.h" // For setDebugMode etc.
-#include "utils.h" // For readResourceFileUtf8 function
 
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonParseError>
 #include <QJsonValue>
-#include <QStandardPaths> // For default paths
-#include <QProcess> // For checking if Node.js is available
-#include <QMetaProperty> // NEW: For QMetaProperty definition
-#include <QMetaObject> // NEW: For QMetaObject and related meta-information
+#include <QMetaProperty>
+#include <QMetaObject>
+#include "consts.h"
 
-// Include QCommandLine here, as this is where the `flags` array is defined
-#include "qcommandline/qcommandline.h"
-
-// Global static instance (singleton pattern)
-Config* Config::s_instance = nullptr;
-
-// Command line configuration entries (static global, now defined in .cpp)
-// This array needs to be defined once in a .cpp file.
-// If it were in the .h, every .cpp including the .h would get its own copy,
-// and it can interfere with moc.
 const struct QCommandLineConfigEntry flags[] = {
-    { QCommandLine::Option, '\0', "cookies-file", "Sets the file to store cookies", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "config", "Specifies JSON-formatted configuration file", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "debug", "Prints additional warning and debug message: 'true' or 'false' (default)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "disk-cache", "Enables disk cache: 'true' or 'false' (default)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "disk-cache-path", "Specifies the location of the disk cache",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ignore-ssl-errors", "Ignores SSL errors: 'true' or 'false' (default)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "local-storage-path", "Specifies the location of the local storage",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "local-storage-quota", "Sets the maximum size of the local storage (in bytes)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "load-images", "Loads all images: 'true' or 'false' (default)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "local-to-remote-url-access",
-        "Allows local content to access remote URLs: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "max-disk-cache-size", "Sets the maximum size of the disk cache (in bytes)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "offline-storage-path", "Specifies the location of the offline storage",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "offline-storage-quota", "Sets the maximum size of the offline storage (in bytes)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "output-encoding", "Sets the encoding for the console output",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "phantom-path", "Sets the path to PhantomJS (used internally)",
-        QCommandLine::Optional }, // Not really needed for Playwright
-    { QCommandLine::Option, '\0', "proxy", "Sets the network proxy: 'user:password@proxyhost:proxyport' (default)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "proxy-auth", "Sets the network proxy authentication: 'user:password'",
-        QCommandLine::Optional }, // Handled in proxy string
-    { QCommandLine::Option, '\0', "proxy-type", "Sets the network proxy type: 'http', 'socks5' (default)",
-        QCommandLine::Optional }, // Handled in proxy string
-    { QCommandLine::Option, '\0', "resource-timeout",
-        "Sets the maximum timeout for network resources (in milliseconds)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "script-encoding", "Sets the encoding for the script (default is UTF-8)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-certificates-path", "Sets the path to a directory containing SSL certificates",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-protocol",
-        "Sets the SSL protocol to use (e.g., 'SSLv3', 'TLSv1', 'TLSv1_0', 'TLSv1_1', 'TLSv1_2', 'TLSv1_3', 'Any')",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "web-security", "Enables web security: 'true' or 'false' (default)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "webdriver", "Starts the WebDriver service (default is null)",
-        QCommandLine::Optional }, // Not for Playwright
-    { QCommandLine::Option, '\0', "webdriver-loglevel", "Sets the log level for WebDriver (default is 'INFO')",
-        QCommandLine::Optional }, // Not for Playwright
-    { QCommandLine::Option, '\0', "webdriver-selenium-grid-hub", "Sets the Selenium Grid hub URL (default is null)",
-        QCommandLine::Optional }, // Not for Playwright
-    { QCommandLine::Option, '\0', "console-level",
-        "Sets the logging level for console output (e.g., 'debug', 'info', 'warning', 'error')",
-        QCommandLine::Optional }, // Mapped to logLevel
-    { QCommandLine::Option, '\0', "remote-debugger-port", "Starts the remote debugger on the specified port",
-        QCommandLine::Optional }, // Mapped to showInspector
-    { QCommandLine::Option, '\0', "remote-debugger-autorun",
-        "Runs the script automatically when remote debugger connects",
-        QCommandLine::Optional }, // No direct Playwright equivalent
-    { QCommandLine::Option, '\0', "webdriver-port", "Starts WebDriver on the specified port (default is 8910)",
-        QCommandLine::Optional }, // Not for Playwright
-    { QCommandLine::Option, '\0', "ignore-ssl-errors", "Ignores SSL errors (duplicate, will consolidate)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "cookies-enabled", "Enables cookies: 'true' or 'false' (default is true)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "javascript-enabled", "Enables JavaScript: 'true' or 'false' (default is true)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "javascript-can-open-windows",
-        "Allows JavaScript to open new windows: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "javascript-can-close-windows",
-        "Allows JavaScript to close windows: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "webgl-enabled", "Enables WebGL: 'true' or 'false' (default)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-ciphers", "Sets the SSL ciphers to use (duplicate, will consolidate)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-client-certificate-file", "Sets the client certificate file for SSL (duplicate)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-client-key-file", "Sets the client key file for SSL (duplicate)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-client-key-passphrase", "Sets the client key passphrase for SSL (duplicate)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "print-header", "Enables printing header in PDF output: 'true' or 'false' (default)",
-        QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "print-footer", "Enables printing footer in PDF output: 'true' or 'false' (default)",
-        QCommandLine::Optional },
-    // *** DEFINITIVE FIX FOR QCommandLine ENUM MEMBERS BASED ON qcommandline.h ***
-    { QCommandLine::Switch, 'v', "version", "Prints PhantomJS version",
-        QCommandLine::Default }, // Changed Type to Switch, Flag to Default
-    { QCommandLine::Switch, 'h', "help", "Prints this help message",
-        QCommandLine::Default }, // Changed Type to Switch, Flag to Default
-    { QCommandLine::Param, '\0', "script", "Script file to execute",
-        QCommandLine::Optional }, // Changed Type to Param, added a longName
-    { QCommandLine::Param, '\0', "args", "Script arguments",
-        QCommandLine::Optional } // Changed Type to Param, added a longName
+    {"version", QCommandLine::Switch, QCommandLine::Default, "Show program's version number and exit"},
+    {"help", QCommandLine::Switch, QCommandLine::Default, "Show this help message and exit"},
+
+    {"script", QCommandLine::Param, QCommandLine::Optional | QCommandLine::Positional, "Path to the PhantomJS script file to execute", "script", "script.js"},
+    {"args", QCommandLine::Param, QCommandLine::Multiple | QCommandLine::Positional, "Arguments to pass to the script", "arg", "[script arguments...]"},
+    {"config", QCommandLine::Param, QCommandLine::Optional, "Path to a JSON configuration file", "config", "config.json"},
+
+    {"debug", QCommandLine::Switch, QCommandLine::Optional, "Prints additional warnings and debug messages"},
+    {"console-level", QCommandLine::Param, QCommandLine::Optional, "Sets the level of messages printed to console (debug, info, warning, error, none)", "level", "info"},
+    {"output-encoding", QCommandLine::Param, QCommandLine::Optional, "Sets the encoding for the console output (default: system encoding)", "encoding", ""},
+    {"script-encoding", QCommandLine::Param, QCommandLine::Optional, "Sets the encoding for the script file (default: system encoding)", "encoding", ""},
+    {"remote-debugger-port", QCommandLine::Param, QCommandLine::Optional, "Starts the script in a debug mode and listens on the specified port", "port", ""},
+    {"remote-debugger-autorun", QCommandLine::Switch, QCommandLine::Optional, "Runs the script in a debug mode", ""},
+    {"webdriver", QCommandLine::Param, QCommandLine::Optional, "Starts in WebDriver mode (e.g., --webdriver=8910)", "port", ""},
+    {"webdriver-logfile", QCommandLine::Param, QCommandLine::Optional, "Path to the log file for WebDriver messages", "path", ""},
+    {"webdriver-loglevel", QCommandLine::Param, QCommandLine::Optional, "Sets the level of messages printed to WebDriver log (debug, info, warning, error, none)", "level", ""},
+    {"webdriver-selenium-grid-hub", QCommandLine::Param, QCommandLine::Optional, "URL of the Selenium Grid Hub (e.g., http://localhost:4444)", "url", ""},
+    {"ignore-ssl-errors", QCommandLine::Switch, QCommandLine::Optional, "Ignores SSL errors", ""},
+    {"ssl-protocol", QCommandLine::Param, QCommandLine::Optional, "Sets the SSL protocol (SSLv3, SSLv2, TLSv1, TLSv1.1, TLSv1.2, ANY)", "protocol", ""},
+    {"ssl-ciphers", QCommandLine::Param, QCommandLine::Optional, "Sets the SSL ciphers (OpenSSL format)", "ciphers", ""},
+    {"ssl-certificates-path", QCommandLine::Param, QCommandLine::Optional, "Sets the path for custom CA certificates", "path", ""},
+    {"ssl-client-certificate-file", QCommandLine::Param, QCommandLine::Optional, "Sets the client certificate file for SSL", "file", ""},
+    {"ssl-client-key-file", QCommandLine::Param, QCommandLine::Optional, "Sets the client private key file for SSL", "file", ""},
+    {"ssl-client-key-passphrase", QCommandLine::Param, QCommandLine::Optional, "Sets the passphrase for the client private key", "passphrase", ""},
+    {"proxy", QCommandLine::Param, QCommandLine::Optional, "Sets the proxy server (e.g., --proxy=user:password@host:port)", "proxy", ""},
+    {"proxy-type", QCommandLine::Param, QCommandLine::Optional, "Sets the proxy type (http, socks5, none)", "type", "http"},
+    {"proxy-auth", QCommandLine::Param, QCommandLine::Optional, "Sets the proxy authentication (user:password)", "auth", ""},
+    {"cookies-file", QCommandLine::Param, QCommandLine::Optional, "Path to a file for persistent cookie storage", "file", ""},
+    {"cookies-enabled", QCommandLine::Switch, QCommandLine::Optional, "Enables or disables persistent cookies (default: enabled)", ""},
+
+    {"disk-cache", QCommandLine::Switch, QCommandLine::Optional, "Enables or disables disk cache (default: disabled)", ""},
+    {"max-disk-cache-size", QCommandLine::Param, QCommandLine::Optional, "Sets the maximum size of the disk cache in MB", "size", ""},
+    {"disk-cache-path", QCommandLine::Param, QCommandLine::Optional, "Sets the path for the disk cache", "path", ""},
+
+    {"load-images", QCommandLine::Switch, QCommandLine::Optional, "Enables or disables image loading (default: enabled)", ""},
+    {"local-to-remote-url-access", QCommandLine::Switch, QCommandLine::Optional, "Allows or disallows local content to access remote URLs (default: disabled)", ""},
+    {"offline-storage-path", QCommandLine::Param, QCommandLine::Optional, "Sets the path for offline web application storage", "path", ""},
+    {"offline-storage-quota", QCommandLine::Param, QCommandLine::Optional, "Sets the maximum size of the offline web application storage in MB", "size", ""},
+    {"local-storage-path", QCommandLine::Param, QCommandLine::Optional, "Sets the path for HTML5 local storage", "path", ""},
+    {"local-storage-quota", QCommandLine::Param, QCommandLine::Optional, "Sets the maximum size of HTML5 local storage in MB", "size", ""},
+    {"resource-timeout", QCommandLine::Param, QCommandLine::Optional, "Sets the resource timeout in milliseconds", "timeout", ""},
+    {"max-auth-attempts", QCommandLine::Param, QCommandLine::Optional, "Sets the maximum authentication attempts for network requests", "attempts", ""},
+    {"javascript-enabled", QCommandLine::Switch, QCommandLine::Optional, "Enables or disables JavaScript (default: enabled)", ""},
+    {"web-security", QCommandLine::Switch, QCommandLine::Optional, "Enables or disables web security (default: enabled)", ""},
+    {"webgl-enabled", QCommandLine::Switch, QCommandLine::Optional, "Enables or disables WebGL (default: disabled)", ""},
+    {"javascript-can-open-windows", QCommandLine::Switch, QCommandLine::Optional, "Allows or disallows JavaScript to open new windows (default: disabled)", ""},
+    {"javascript-can-close-windows", QCommandLine::Switch, QCommandLine::Optional, "Allows or disallows JavaScript to close windows (default: disabled)", ""},
+    {"print-header", QCommandLine::Switch, QCommandLine::Optional, "Enables or disables header in PDF rendering (default: disabled)", ""},
+    {"print-footer", QCommandLine::Switch, QCommandLine::Optional, "Enables or disables footer in PDF rendering (default: disabled)", ""},
+
+    QCOMMANDLINE_CONFIG_ENTRY_END
 };
 
-// ... (Rest of your config.cpp content follows) ...
-// The existing content for Config::Config, Config::instance, getters, setters,
-// loadJsonFile, set, get, etc., remains here.
+Config* Config::m_instance = 0;
 
-// Constructor implementation
+Config* Config::instance()
+{
+    if (!m_instance) {
+        m_instance = new Config();
+    }
+    return m_instance;
+}
+
 Config::Config(QObject* parent)
     : QObject(parent)
-    // Initialize default values based on PhantomJS original behavior or reasonable defaults
-    , m_debug(false)
-    , m_logLevel("info") // Default log level
-    , m_cookiesFile("")
-    , m_cookiesEnabled(true)
-    , m_diskCacheEnabled(false)
-    , m_maxDiskCacheSize(0)
-    , m_diskCachePath(QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/phantomjs-disk-cache")
-    , m_ignoreSslErrors(false)
-    , m_sslProtocol("Any")
-    , m_sslCiphers("")
-    , m_sslCertificatesPath("")
-    , m_sslClientCertificateFile("")
-    , m_sslClientKeyFile("")
-    , m_sslClientKeyPassphrase("")
-    , m_resourceTimeout(0) // No timeout by default
-    , m_maxAuthAttempts(3)
-    , m_outputEncoding("UTF-8")
-    , m_autoLoadImages(true)
-    , m_javascriptEnabled(true)
-    , m_webSecurityEnabled(true)
-    , m_localToRemoteUrlAccessEnabled(false) // Default to false for security
-    , m_offlineStorageEnabled(false)
-    , m_offlineStoragePath(
-          QStandardPaths::writableLocation(QStandardPaths::DataLocation) + "/phantomjs-offline-storage")
-    , m_offlineStorageQuota(0) // Default to 0 (unlimited)
-    , m_localStorageEnabled(true)
-    , m_localStoragePath(QStandardPaths::writableLocation(QStandardPaths::DataLocation) + "/phantomjs-local-storage")
-    , m_localStorageQuota(0) // Default to 0 (unlimited)
-    , m_printFooter(false)
-    , m_printHeader(false)
-    , m_scriptEncoding("UTF-8")
-    , m_scriptLanguage("javascript")
-    , m_webGLEnabled(true)
-    , m_javascriptCanOpenWindows(false) // Default to false for security
-    , m_javascriptCanCloseWindows(false) // Default to false for security
-    // Initialize QSettings with appropriate application name/organization
-    , m_settings(QSettings::IniFormat, QSettings::UserScope, QCoreApplication::organizationName(),
-          QCoreApplication::applicationName() + "_config") {
-    // Load persisted settings (if any) or apply defaults
-    setDebug(m_settings.value("debug", m_debug).toBool());
-    setLogLevel(m_settings.value("logLevel", m_logLevel).toString());
-    setCookiesFile(m_settings.value("cookiesFile", m_cookiesFile).toString());
-    setCookiesEnabled(m_settings.value("cookiesEnabled", m_cookiesEnabled).toBool());
-    setDiskCacheEnabled(m_settings.value("diskCacheEnabled", m_diskCacheEnabled).toBool());
-    setMaxDiskCacheSize(m_settings.value("maxDiskCacheSize", m_maxDiskCacheSize).toInt());
-    setDiskCachePath(m_settings.value("diskCachePath", m_diskCachePath).toString());
-    setIgnoreSslErrors(m_settings.value("ignoreSslErrors", m_ignoreSslErrors).toBool());
-    setSslProtocol(m_settings.value("sslProtocol", m_sslProtocol).toString());
-    setSslCiphers(m_settings.value("sslCiphers", m_sslCiphers).toString());
-    setSslCertificatesPath(m_settings.value("sslCertificatesPath", m_sslCertificatesPath).toString());
-    setSslClientCertificateFile(m_settings.value("sslClientCertificateFile", m_sslClientCertificateFile).toString());
-    setSslClientKeyFile(m_settings.value("sslClientKeyFile", m_sslClientKeyFile).toString());
-    setSslClientKeyPassphrase(m_settings.value("sslClientKeyPassphrase", m_sslClientKeyPassphrase).toByteArray());
-    setResourceTimeout(m_settings.value("resourceTimeout", m_resourceTimeout).toInt());
-    setMaxAuthAttempts(m_settings.value("maxAuthAttempts", m_maxAuthAttempts).toInt());
-    setOutputEncoding(m_settings.value("outputEncoding", m_outputEncoding).toString());
-    setAutoLoadImages(m_settings.value("autoLoadImages", m_autoLoadImages).toBool());
-    setJavascriptEnabled(m_settings.value("javascriptEnabled", m_javascriptEnabled).toBool());
-    setWebSecurityEnabled(m_settings.value("webSecurityEnabled", m_webSecurityEnabled).toBool());
-    setLocalToRemoteUrlAccessEnabled(
-        m_settings.value("localToRemoteUrlAccessEnabled", m_localToRemoteUrlAccessEnabled).toBool());
-    setOfflineStorageEnabled(m_settings.value("offlineStorageEnabled", m_offlineStorageEnabled).toBool());
-    setOfflineStoragePath(m_settings.value("offlineStoragePath", m_offlineStoragePath).toString());
-    setOfflineStorageQuota(m_settings.value("offlineStorageQuota", m_offlineStorageQuota).toInt());
-    setLocalStorageEnabled(m_settings.value("localStorageEnabled", m_localStorageEnabled).toBool());
-    setLocalStoragePath(m_settings.value("localStoragePath", m_localStoragePath).toString());
-    setLocalStorageQuota(m_settings.value("localStorageQuota", m_localStorageQuota).toInt());
-    setPrintFooter(m_settings.value("printFooter", m_printFooter).toBool());
-    setPrintHeader(m_settings.value("printHeader", m_printHeader).toBool());
-    setScriptEncoding(m_settings.value("scriptEncoding", m_scriptEncoding).toString());
-    setScriptLanguage(m_settings.value("scriptLanguage", m_scriptLanguage).toString());
-    setWebGLEnabled(m_settings.value("webGLEnabled", m_webGLEnabled).toBool());
-    setJavascriptCanOpenWindows(m_settings.value("javascriptCanOpenWindows", m_javascriptCanOpenWindows).toBool());
-    setJavascriptCanCloseWindows(m_settings.value("javascriptCanCloseWindows", m_javascriptCanCloseWindows).toBool());
+{
+    m_settings["debug"] = false;
+    m_settings["console-level"] = "info";
+    m_settings["output-encoding"] = "";
+    m_settings["script-encoding"] = "";
+    m_settings["script-language"] = "javascript";
 
-    qDebug() << "Config: Initialized. Debug:" << m_debug << "Log Level:" << m_logLevel;
+    m_settings["cookies-enabled"] = true;
+    m_settings["cookies-file"] = "";
+    m_settings["disk-cache-enabled"] = false;
+    m_settings["max-disk-cache-size"] = 0;
+    m_settings["disk-cache-path"] = "";
+    m_settings["ignore-ssl-errors"] = false;
+    m_settings["ssl-protocol"] = "ANY";
+    m_settings["ssl-ciphers"] = "";
+    m_settings["ssl-certificates-path"] = "";
+    m_settings["ssl-client-certificate-file"] = "";
+    m_settings["ssl-client-key-file"] = "";
+    m_settings["ssl-client-key-passphrase"] = QByteArray();
+    m_settings["resource-timeout"] = 0;
+    m_settings["max-auth-attempts"] = 3;
+
+    m_settings["javascript-enabled"] = true;
+    m_settings["web-security"] = true;
+    m_settings["webgl-enabled"] = false;
+    m_settings["javascript-can-open-windows"] = false;
+    m_settings["javascript-can-close-windows"] = false;
+    m_settings["local-to-remote-url-access-enabled"] = false;
+    m_settings["auto-load-images"] = true;
+
+    m_settings["local-storage-path"] = "";
+    m_settings["local-storage-quota"] = 0;
+    m_settings["offline-storage-path"] = "";
+    m_settings["offline-storage-quota"] = 0;
+
+    m_settings["print-header"] = false;
+    m_settings["print-footer"] = false;
+
+    QVariantMap defaultPageSettingsMap;
+    defaultPageSettingsMap[PAGE_SETTINGS_USER_AGENT] = "";
+    defaultPageSettingsMap[PAGE_SETTINGS_VIEWPORT_SIZE] = QVariantMap{{"width", 1024}, {"height", 768}};
+    defaultPageSettingsMap[PAGE_SETTINGS_CLIP_RECT] = QVariantMap{{"left", 0}, {"top", 0}, {"width", 0}, {"height", 0}};
+    defaultPageSettingsMap[PAGE_SETTINGS_SCROLL_POSITION] = QVariantMap{{"left", 0}, {"top", 0}};
+    defaultPageSettingsMap[PAGE_SETTINGS_ZOOM_FACTOR] = 1.0;
+    defaultPageSettingsMap[PAGE_SETTINGS_CUSTOM_HEADERS] = QVariantMap();
+    defaultPageSettingsMap[PAGE_SETTINGS_NAVIGATION_LOCKED] = false;
+    defaultPageSettingsMap[PAGE_SETTINGS_PAPER_SIZE] = QVariantMap();
+
+    defaultPageSettingsMap[PAGE_SETTINGS_LOAD_IMAGES] = m_settings["auto-load-images"];
+    defaultPageSettingsMap[PAGE_SETTINGS_JAVASCRIPT_ENABLED] = m_settings["javascript-enabled"];
+    defaultPageSettingsMap[PAGE_SETTINGS_WEB_SECURITY] = m_settings["web-security"];
+    defaultPageSettingsMap[PAGE_SETTINGS_WEBG_ENABLED] = m_settings["webgl-enabled"];
+    defaultPageSettingsMap[PAGE_SETTINGS_JAVASCRIPT_CAN_OPEN_WINDOWS] = m_settings["javascript-can-open-windows"];
+    defaultPageSettingsMap[PAGE_SETTINGS_JAVASCRIPT_CAN_CLOSE_WINDOWS] = m_settings["javascript-can-close-windows"];
+    defaultPageSettingsMap[PAGE_SETTINGS_LOCAL_TO_REMOTE_URL_ACCESS_ENABLED] = m_settings["local-to-remote-url-access-enabled"];
+    defaultPageSettingsMap[PAGE_SETTINGS_OFFLINE_STORAGE_PATH] = m_settings["offline-storage-path"];
+    defaultPageSettingsMap[PAGE_SETTINGS_OFFLINE_STORAGE_QUOTA] = m_settings["offline-storage-quota"];
+    defaultPageSettingsMap[PAGE_SETTINGS_LOCAL_STORAGE_PATH] = m_settings["local-storage-path"];
+    defaultPageSettingsMap[PAGE_SETTINGS_LOCAL_STORAGE_QUOTA] = m_settings["local-storage-quota"];
+    defaultPageSettingsMap[PAGE_SETTINGS_RESOURCE_TIMEOUT] = m_settings["resource-timeout"];
+    defaultPageSettingsMap[PAGE_SETTINGS_MAX_AUTH_ATTEMPTS] = m_settings["max-auth-attempts"];
+
+    m_settings["defaultPageSettings"] = defaultPageSettingsMap;
+
+    connect(this, &Config::autoLoadImagesChanged, this, [this](bool value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_LOAD_IMAGES] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::javascriptEnabledChanged, this, [this](bool value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_JAVASCRIPT_ENABLED] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::webSecurityEnabledChanged, this, [this](bool value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_WEB_SECURITY] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::webGLEnabledChanged, this, [this](bool value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_WEBG_ENABLED] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::javascriptCanOpenWindowsChanged, this, [this](bool value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_JAVASCRIPT_CAN_OPEN_WINDOWS] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::javascriptCanCloseWindowsChanged, this, [this](bool value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_JAVASCRIPT_CAN_CLOSE_WINDOWS] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::localToRemoteUrlAccessEnabledChanged, this, [this](bool value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_LOCAL_TO_REMOTE_URL_ACCESS_ENABLED] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::offlineStoragePathChanged, this, [this](const QString& value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_OFFLINE_STORAGE_PATH] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::offlineStorageQuotaChanged, this, [this](int value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_OFFLINE_STORAGE_QUOTA] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::localStoragePathChanged, this, [this](const QString& value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_LOCAL_STORAGE_PATH] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::localStorageQuotaChanged, this, [this](int value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_LOCAL_STORAGE_QUOTA] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::resourceTimeoutChanged, this, [this](int value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_RESOURCE_TIMEOUT] = value;
+        setDefaultPageSettings(currentSettings);
+    });
+    connect(this, &Config::maxAuthAttemptsChanged, this, [this](int value){
+        QVariantMap currentSettings = defaultPageSettings();
+        currentSettings[PAGE_SETTINGS_MAX_AUTH_ATTEMPTS] = value;
+        setDefaultPageSettings(currentSettings);
+    });
 }
 
-Config* Config::instance() {
-    if (!s_instance) {
-        s_instance = new Config(QCoreApplication::instance());
-    }
-    return s_instance;
-}
-
-// Getters
-bool Config::debug() const { return m_debug; }
-QString Config::logLevel() const { return m_logLevel; }
-QString Config::cookiesFile() const { return m_cookiesFile; }
-bool Config::cookiesEnabled() const { return m_cookiesEnabled; }
-bool Config::diskCacheEnabled() const { return m_diskCacheEnabled; }
-int Config::maxDiskCacheSize() const { return m_maxDiskCacheSize; }
-QString Config::diskCachePath() const { return m_diskCachePath; }
-bool Config::ignoreSslErrors() const { return m_ignoreSslErrors; }
-QString Config::sslProtocol() const { return m_sslProtocol; }
-QString Config::sslCiphers() const { return m_sslCiphers; }
-QString Config::sslCertificatesPath() const { return m_sslCertificatesPath; }
-QString Config::sslClientCertificateFile() const { return m_sslClientCertificateFile; }
-QString Config::sslClientKeyFile() const { return m_sslClientKeyFile; }
-QByteArray Config::sslClientKeyPassphrase() const { return m_sslClientKeyPassphrase; }
-int Config::resourceTimeout() const { return m_resourceTimeout; }
-int Config::maxAuthAttempts() const { return m_maxAuthAttempts; }
-QString Config::outputEncoding() const { return m_outputEncoding; }
-bool Config::autoLoadImages() const { return m_autoLoadImages; }
-bool Config::javascriptEnabled() const { return m_javascriptEnabled; }
-bool Config::webSecurityEnabled() const { return m_webSecurityEnabled; }
-bool Config::localToRemoteUrlAccessEnabled() const { return m_localToRemoteUrlAccessEnabled; }
-bool Config::offlineStorageEnabled() const { return m_offlineStorageEnabled; }
-QString Config::offlineStoragePath() const { return m_offlineStoragePath; }
-int Config::offlineStorageQuota() const { return m_offlineStorageQuota; }
-bool Config::localStorageEnabled() const { return m_localStorageEnabled; }
-QString Config::localStoragePath() const { return m_localStoragePath; }
-int Config::localStorageQuota() const { return m_localStorageQuota; }
-bool Config::printFooter() const { return m_printFooter; }
-bool Config::printHeader() const { return m_printHeader; }
-QString Config::scriptEncoding() const { return m_scriptEncoding; }
-QString Config::scriptLanguage() const { return m_scriptLanguage; }
-bool Config::webGLEnabled() const { return m_webGLEnabled; }
-bool Config::javascriptCanOpenWindows() const { return m_javascriptCanOpenWindows; }
-bool Config::javascriptCanCloseWindows() const { return m_javascriptCanCloseWindows; }
-
-// Setters
-void Config::setDebug(bool debug) {
-    if (m_debug != debug) {
-        m_debug = debug;
-        m_settings.setValue("debug", debug);
-        emit debugChanged(debug);
-        Terminal::instance()->setDebugMode(debug); // Update Terminal directly
-        qDebug() << "Config: Debug mode set to" << debug;
-    }
-}
-
-void Config::setLogLevel(const QString& level) {
-    if (m_logLevel != level) {
-        m_logLevel = level;
-        m_settings.setValue("logLevel", level);
-        emit logLevelChanged(level);
-        // You might want to update Terminal's log level filtering here as well
-        qDebug() << "Config: Log level set to" << level;
-    }
-}
-
-void Config::setCookiesFile(const QString& path) {
-    if (m_cookiesFile != path) {
-        m_cookiesFile = path;
-        m_settings.setValue("cookiesFile", path);
-        emit cookiesFileChanged(path);
-    }
-}
-
-void Config::setCookiesEnabled(bool enabled) {
-    if (m_cookiesEnabled != enabled) {
-        m_cookiesEnabled = enabled;
-        m_settings.setValue("cookiesEnabled", enabled);
-        emit cookiesEnabledChanged(enabled);
-    }
-}
-
-void Config::setDiskCacheEnabled(bool enabled) {
-    if (m_diskCacheEnabled != enabled) {
-        m_diskCacheEnabled = enabled;
-        m_settings.setValue("diskCacheEnabled", enabled);
-        emit diskCacheEnabledChanged(enabled);
-    }
-}
-
-void Config::setMaxDiskCacheSize(int size) {
-    if (m_maxDiskCacheSize != size) {
-        m_maxDiskCacheSize = size;
-        m_settings.setValue("maxDiskCacheSize", size);
-        emit maxDiskCacheSizeChanged(size);
-    }
-}
-
-void Config::setDiskCachePath(const QString& path) {
-    if (m_diskCachePath != path) {
-        m_diskCachePath = path;
-        m_settings.setValue("diskCachePath", path);
-        emit diskCachePathChanged(path);
-    }
-}
-
-void Config::setIgnoreSslErrors(bool ignore) {
-    if (m_ignoreSslErrors != ignore) {
-        m_ignoreSslErrors = ignore;
-        m_settings.setValue("ignoreSslErrors", ignore);
-        emit ignoreSslErrorsChanged(ignore);
-    }
-}
-
-void Config::setSslProtocol(const QString& protocol) {
-    if (m_sslProtocol != protocol) {
-        m_sslProtocol = protocol;
-        m_settings.setValue("sslProtocol", protocol);
-        emit sslProtocolChanged(protocol);
-    }
-}
-
-void Config::setSslCiphers(const QString& ciphers) {
-    if (m_sslCiphers != ciphers) {
-        m_sslCiphers = ciphers;
-        m_settings.setValue("sslCiphers", ciphers);
-        emit sslCiphersChanged(ciphers);
-    }
-}
-
-void Config::setSslCertificatesPath(const QString& path) {
-    if (m_sslCertificatesPath != path) {
-        m_sslCertificatesPath = path;
-        m_settings.setValue("sslCertificatesPath", path);
-        emit sslCertificatesPathChanged(path);
-    }
-}
-
-void Config::setSslClientCertificateFile(const QString& path) {
-    if (m_sslClientCertificateFile != path) {
-        m_sslClientCertificateFile = path;
-        m_settings.setValue("sslClientCertificateFile", path);
-        emit sslClientCertificateFileChanged(path);
-    }
-}
-
-void Config::setSslClientKeyFile(const QString& path) {
-    if (m_sslClientKeyFile != path) {
-        m_sslClientKeyFile = path;
-        m_settings.setValue("sslClientKeyFile", path);
-        emit sslClientKeyFileChanged(path);
-    }
-}
-
-void Config::setSslClientKeyPassphrase(const QByteArray& passphrase) {
-    if (m_sslClientKeyPassphrase != passphrase) {
-        m_sslClientKeyPassphrase = passphrase;
-        m_settings.setValue("sslClientKeyPassphrase", passphrase);
-        emit sslClientKeyPassphraseChanged(passphrase);
-    }
-}
-
-void Config::setResourceTimeout(int timeout) {
-    if (m_resourceTimeout != timeout) {
-        m_resourceTimeout = timeout;
-        m_settings.setValue("resourceTimeout", timeout);
-        emit resourceTimeoutChanged(timeout);
-    }
-}
-
-void Config::setMaxAuthAttempts(int attempts) {
-    if (m_maxAuthAttempts != attempts) {
-        m_maxAuthAttempts = attempts;
-        m_settings.setValue("maxAuthAttempts", attempts);
-        emit maxAuthAttemptsChanged(attempts);
-    }
-}
-
-void Config::setOutputEncoding(const QString& encoding) {
-    if (m_outputEncoding != encoding) {
-        m_outputEncoding = encoding;
-        m_settings.setValue("outputEncoding", encoding);
-        emit outputEncodingChanged(encoding);
-    }
-}
-
-void Config::setAutoLoadImages(bool autoLoad) {
-    if (m_autoLoadImages != autoLoad) {
-        m_autoLoadImages = autoLoad;
-        m_settings.setValue("autoLoadImages", autoLoad);
-        emit autoLoadImagesChanged(autoLoad);
-    }
-}
-
-void Config::setJavascriptEnabled(bool enabled) {
-    if (m_javascriptEnabled != enabled) {
-        m_javascriptEnabled = enabled;
-        m_settings.setValue("javascriptEnabled", enabled);
-        emit javascriptEnabledChanged(enabled);
-    }
-}
-
-void Config::setWebSecurityEnabled(bool enabled) {
-    if (m_webSecurityEnabled != enabled) {
-        m_webSecurityEnabled = enabled;
-        m_settings.setValue("webSecurityEnabled", enabled);
-        emit webSecurityEnabledChanged(enabled);
-    }
-}
-
-void Config::setLocalToRemoteUrlAccessEnabled(bool enabled) {
-    if (m_localToRemoteUrlAccessEnabled != enabled) {
-        m_localToRemoteUrlAccessEnabled = enabled;
-        m_settings.setValue("localToRemoteUrlAccessEnabled", enabled);
-        emit localToRemoteUrlAccessEnabledChanged(enabled);
-    }
-}
-
-void Config::setOfflineStorageEnabled(bool enabled) {
-    if (m_offlineStorageEnabled != enabled) {
-        m_offlineStorageEnabled = enabled;
-        m_settings.setValue("offlineStorageEnabled", enabled);
-        emit offlineStorageEnabledChanged(enabled);
-    }
-}
-
-void Config::setOfflineStoragePath(const QString& path) {
-    if (m_offlineStoragePath != path) {
-        m_offlineStoragePath = path;
-        m_settings.setValue("offlineStoragePath", path);
-        emit offlineStoragePathChanged(path);
-    }
-}
-
-void Config::setOfflineStorageQuota(int quota) {
-    if (m_offlineStorageQuota != quota) {
-        m_offlineStorageQuota = quota;
-        m_settings.setValue("offlineStorageQuota", quota);
-        emit offlineStorageQuotaChanged(quota);
-    }
-}
-
-void Config::setLocalStorageEnabled(bool enabled) {
-    if (m_localStorageEnabled != enabled) {
-        m_localStorageEnabled = enabled;
-        m_settings.setValue("localStorageEnabled", enabled);
-        emit localStorageEnabledChanged(enabled);
-    }
-}
-
-void Config::setLocalStoragePath(const QString& path) {
-    if (m_localStoragePath != path) {
-        m_localStoragePath = path;
-        m_settings.setValue("localStoragePath", path);
-        emit localStoragePathChanged(path);
-    }
-}
-
-void Config::setLocalStorageQuota(int quota) {
-    if (m_localStorageQuota != quota) {
-        m_localStorageQuota = quota;
-        m_settings.setValue("localStorageQuota", quota);
-        emit localStorageQuotaChanged(quota);
-    }
-}
-
-void Config::setPrintFooter(bool print) {
-    if (m_printFooter != print) {
-        m_printFooter = print;
-        m_settings.setValue("printFooter", print);
-        emit printFooterChanged(print);
-    }
-}
-
-void Config::setPrintHeader(bool print) {
-    if (m_printHeader != print) {
-        m_printHeader = print;
-        m_settings.setValue("printHeader", print);
-        emit printHeaderChanged(print);
-    }
-}
-
-void Config::setScriptEncoding(const QString& encoding) {
-    if (m_scriptEncoding != encoding) {
-        m_scriptEncoding = encoding;
-        m_settings.setValue("scriptEncoding", encoding);
-        emit scriptEncodingChanged(encoding);
-    }
-}
-
-void Config::setScriptLanguage(const QString& language) {
-    if (m_scriptLanguage != language) {
-        m_scriptLanguage = language;
-        m_settings.setValue("scriptLanguage", language);
-        emit scriptLanguageChanged(language);
-    }
-}
-
-void Config::setWebGLEnabled(bool enabled) {
-    if (m_webGLEnabled != enabled) {
-        m_webGLEnabled = enabled;
-        m_settings.setValue("webGLEnabled", enabled);
-        emit webGLEnabledChanged(enabled);
-    }
-}
-
-void Config::setJavascriptCanOpenWindows(bool enabled) {
-    if (m_javascriptCanOpenWindows != enabled) {
-        m_javascriptCanOpenWindows = enabled;
-        m_settings.setValue("javascriptCanOpenWindows", enabled);
-        emit javascriptCanOpenWindowsChanged(enabled);
-    }
-}
-
-void Config::setJavascriptCanCloseWindows(bool enabled) {
-    if (m_javascriptCanCloseWindows != enabled) {
-        m_javascriptCanCloseWindows = enabled;
-        m_settings.setValue("javascriptCanCloseWindows", enabled);
-        emit javascriptCanCloseWindowsChanged(enabled);
-    }
-}
-
-// Methods
-void Config::loadJsonFile(const QString& filePath) {
+bool Config::loadJsonFile(const QString& filePath)
+{
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "Config: Could not open JSON config file:" << filePath;
-        return;
+        qWarning() << "Config: Could not open config file:" << filePath;
+        return false;
     }
 
     QByteArray jsonData = file.readAll();
+    file.close();
+
     QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData, &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "Config: JSON parse error in config file" << filePath << ":" << parseError.errorString();
-        return;
+        qWarning() << "Config: Failed to parse JSON config file:" << parseError.errorString();
+        return false;
     }
 
-    if (!doc.isObject()) {
-        qWarning() << "Config: JSON config file" << filePath << "is not a valid JSON object.";
-        return;
+    if (!jsonDoc.isObject()) {
+        qWarning() << "Config: JSON config file is not a root object.";
+        return false;
     }
 
-    QJsonObject obj = doc.object();
-    for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
-        set(it.key(), it.value().toVariant());
-    }
-    qDebug() << "Config: Loaded JSON configuration from" << filePath;
-}
+    QJsonObject jsonObject = jsonDoc.object();
+    QMetaObject metaObject = this->staticMetaObject;
 
-void Config::set(const QString& key, const QVariant& value) {
-    const QMetaObject* meta = this->metaObject();
-    int propertyIndex = meta->indexOfProperty(key.toLatin1().constData());
-    if (propertyIndex != -1) {
-        QMetaProperty property = meta->property(propertyIndex);
-        if (property.isWritable()) {
-            property.write(this, value);
-            // This will internally call the setter and emit the signal if value changed.
-            qDebug() << "Config: Set property" << key << "=" << value;
-        } else {
-            qWarning() << "Config: Property" << key << "is not writable.";
+    for (int i = metaObject.propertyOffset(); i < metaObject.propertyCount(); ++i) {
+        QMetaProperty property = metaObject.property(i);
+        QString propertyName = property.name();
+
+        if (jsonObject.contains(propertyName)) {
+            QVariant jsonValue = jsonObject[propertyName].toVariant();
+
+            if (property.type() == QVariant::ByteArray && jsonValue.type() == QVariant::String) {
+                jsonValue = jsonValue.toString().toUtf8();
+            }
+
+            if (property.write(this, jsonValue)) {
+                qDebug() << "Config: Set property from JSON:" << propertyName << "=" << jsonValue;
+            } else {
+                qWarning() << "Config: Failed to set property" << propertyName << "with value" << jsonValue << "from JSON. Type mismatch or invalid value?";
+            }
         }
-    } else {
-        qWarning() << "Config: Property" << key << "not found.";
+    }
+    return true;
+}
+
+QVariant Config::get(const QString& key) const
+{
+    return m_settings.value(key);
+}
+
+#define IMPLEMENT_CONFIG_GETTER(TYPE, NAME, VARNAME) \
+    TYPE Config::NAME() const { return m_settings.value(VARNAME).value<TYPE>(); }
+
+#define IMPLEMENT_CONFIG_SETTER(TYPE, NAME, VARNAME, SIGNAL) \
+    void Config::set##NAME(TYPE value) { \
+        if (m_settings.value(VARNAME).value<TYPE>() != value) { \
+            m_settings[VARNAME] = QVariant::fromValue(value); \
+            emit SIGNAL(value); \
+        } \
+    }
+
+IMPLEMENT_CONFIG_GETTER(bool, debug, "debug")
+IMPLEMENT_CONFIG_SETTER(bool, Debug, "debug", debugChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, logLevel, "console-level")
+IMPLEMENT_CONFIG_SETTER(QString, LogLevel, "console-level", logLevelChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, outputEncoding, "output-encoding")
+IMPLEMENT_CONFIG_SETTER(QString, OutputEncoding, "output-encoding", outputEncodingChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, scriptEncoding, "script-encoding")
+IMPLEMENT_CONFIG_SETTER(QString, ScriptEncoding, "script-encoding", scriptEncodingChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, scriptLanguage, "script-language")
+IMPLEMENT_CONFIG_SETTER(QString, ScriptLanguage, "script-language", scriptLanguageChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, cookiesEnabled, "cookies-enabled")
+IMPLEMENT_CONFIG_SETTER(bool, CookiesEnabled, "cookies-enabled", cookiesEnabledChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, cookiesFile, "cookies-file")
+IMPLEMENT_CONFIG_SETTER(QString, CookiesFile, "cookies-file", cookiesFileChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, diskCacheEnabled, "disk-cache-enabled")
+IMPLEMENT_CONFIG_SETTER(bool, DiskCacheEnabled, "disk-cache-enabled", diskCacheEnabledChanged)
+
+IMPLEMENT_CONFIG_GETTER(int, maxDiskCacheSize, "max-disk-cache-size")
+IMPLEMENT_CONFIG_SETTER(int, MaxDiskCacheSize, "max-disk-cache-size", maxDiskCacheSizeChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, diskCachePath, "disk-cache-path")
+IMPLEMENT_CONFIG_SETTER(QString, DiskCachePath, "disk-cache-path", diskCachePathChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, ignoreSslErrors, "ignore-ssl-errors")
+IMPLEMENT_CONFIG_SETTER(bool, IgnoreSslErrors, "ignore-ssl-errors", ignoreSslErrorsChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, sslProtocol, "ssl-protocol")
+IMPLEMENT_CONFIG_SETTER(QString, SslProtocol, "ssl-protocol", sslProtocolChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, sslCiphers, "ssl-ciphers")
+IMPLEMENT_CONFIG_SETTER(QString, SslCiphers, "ssl-ciphers", sslCiphersChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, sslCertificatesPath, "ssl-certificates-path")
+IMPLEMENT_CONFIG_SETTER(QString, SslCertificatesPath, "ssl-certificates-path", sslCertificatesPathChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, sslClientCertificateFile, "ssl-client-certificate-file")
+IMPLEMENT_CONFIG_SETTER(QString, SslClientCertificateFile, "ssl-client-certificate-file", sslClientCertificateFileChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, sslClientKeyFile, "ssl-client-key-file")
+IMPLEMENT_CONFIG_SETTER(QString, SslClientKeyFile, "ssl-client-key-file", sslClientKeyFileChanged)
+
+QByteArray Config::sslClientKeyPassphrase() const {
+    return m_settings.value("ssl-client-key-passphrase").toByteArray();
+}
+void Config::setSslClientKeyPassphrase(QByteArray value) {
+    if (m_settings.value("ssl-client-key-passphrase").toByteArray() != value) {
+        m_settings["ssl-client-key-passphrase"] = value;
+        emit sslClientKeyPassphraseChanged(value);
     }
 }
 
-QVariant Config::get(const QString& key) const {
-    const QMetaObject* meta = this->metaObject();
-    int propertyIndex = meta->indexOfProperty(key.toLatin1().constData());
-    if (propertyIndex != -1) {
-        QMetaProperty property = meta->property(propertyIndex);
-        if (property.isReadable()) {
-            return property.read(this);
-        } else {
-            qWarning() << "Config: Property" << key << "is not readable.";
-        }
-    } else {
-        qWarning() << "Config: Property" << key << "not found.";
-    }
-    return QVariant(); // Return invalid QVariant if property not found or not readable
+IMPLEMENT_CONFIG_GETTER(int, resourceTimeout, "resource-timeout")
+IMPLEMENT_CONFIG_SETTER(int, ResourceTimeout, "resource-timeout", resourceTimeoutChanged)
+
+IMPLEMENT_CONFIG_GETTER(int, maxAuthAttempts, "max-auth-attempts")
+IMPLEMENT_CONFIG_SETTER(int, MaxAuthAttempts, "max-auth-attempts", maxAuthAttemptsChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, javascriptEnabled, "javascript-enabled")
+IMPLEMENT_CONFIG_SETTER(bool, JavascriptEnabled, "javascript-enabled", javascriptEnabledChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, webSecurityEnabled, "web-security")
+IMPLEMENT_CONFIG_SETTER(bool, WebSecurityEnabled, "web-security", webSecurityEnabledChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, webGLEnabled, "webgl-enabled")
+IMPLEMENT_CONFIG_SETTER(bool, WebGLEnabled, "webgl-enabled", webGLEnabledChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, javascriptCanOpenWindows, "javascript-can-open-windows")
+IMPLEMENT_CONFIG_SETTER(bool, JavascriptCanOpenWindows, "javascript-can-open-windows", javascriptCanOpenWindowsChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, javascriptCanCloseWindows, "javascript-can-close-windows")
+IMPLEMENT_CONFIG_SETTER(bool, JavascriptCanCloseWindows, "javascript-can-close-windows", javascriptCanCloseWindowsChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, localToRemoteUrlAccessEnabled, "local-to-remote-url-access-enabled")
+IMPLEMENT_CONFIG_SETTER(bool, LocalToRemoteUrlAccessEnabled, "local-to-remote-url-access-enabled", localToRemoteUrlAccessEnabledChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, autoLoadImages, "auto-load-images")
+IMPLEMENT_CONFIG_SETTER(bool, AutoLoadImages, "auto-load-images", autoLoadImagesChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, localStoragePath, "local-storage-path")
+IMPLEMENT_CONFIG_SETTER(QString, LocalStoragePath, "local-storage-path", localStoragePathChanged)
+
+IMPLEMENT_CONFIG_GETTER(int, localStorageQuota, "local-storage-quota")
+IMPLEMENT_CONFIG_SETTER(int, LocalStorageQuota, "local-storage-quota", localStorageQuotaChanged)
+
+IMPLEMENT_CONFIG_GETTER(QString, offlineStoragePath, "offline-storage-path")
+IMPLEMENT_CONFIG_SETTER(QString, OfflineStoragePath, "offline-storage-path", offlineStoragePathChanged)
+
+IMPLEMENT_CONFIG_GETTER(int, offlineStorageQuota, "offline-storage-quota")
+IMPLEMENT_CONFIG_SETTER(int, OfflineStorageQuota, "offline-storage-quota", offlineStorageQuotaChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, printHeader, "print-header")
+IMPLEMENT_CONFIG_SETTER(bool, PrintHeader, "print-header", printHeaderChanged)
+
+IMPLEMENT_CONFIG_GETTER(bool, printFooter, "print-footer")
+IMPLEMENT_CONFIG_SETTER(bool, PrintFooter, "print-footer", printFooterChanged)
+
+QVariantMap Config::defaultPageSettings() const {
+    return m_settings.value("defaultPageSettings").toMap();
 }
+void Config::setDefaultPageSettings(QVariantMap settings) {
+    if (m_settings.value("defaultPageSettings").toMap() != settings) {
+        m_settings["defaultPageSettings"] = settings;
+        emit defaultPageSettingsChanged(settings);
+    }
+}
+
