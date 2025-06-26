@@ -195,7 +195,7 @@ signals:
     void maxAuthAttemptsChanged(const int attempts);
     void javascriptEnabledChanged(const bool enabled);
     void webSecurityEnabledChanged(const bool enabled);
-    void webGLEnabledChanged( const bool enabled);
+    void webGLEnabledChanged(const bool enabled);
     void javascriptCanOpenWindowsChanged(const bool enabled);
     void javascriptCanCloseWindowsChanged(const bool enabled);
     void localToRemoteUrlAccessEnabledChanged(const bool enabled);
