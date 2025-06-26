@@ -31,273 +31,159 @@
 #ifndef PHANTOM_H
 #define PHANTOM_H
 
-#include <QPointer> // Line 4: Required for QPointer<WebPage>
+#include <QObject>
+#include <QPointer>
+#include <QStringList>
+#include <QVariantMap>
+#include <QVariantList>
+#include <QNetworkProxy> // For setProxy method
 
-#include "childprocess.h" // Line 6: Existing include
-#include "config.h" // Line 7: Existing include
-#include "cookiejar.h" // Line 8: Existing include
-#include "encoding.h" // Line 9: Existing include
-#include "filesystem.h" // Line 10: Existing include
-#include "system.h" // Line 11: Existing include
-#include "webpage.h" // Line 12: Ensure WebPage is included for WebPage* declarations
-// Line 13: Removed 'class CustomPage;' as it's no longer used.
-class WebServer; // Line 14: Existing forward declaration
+// Forward declarations
+class QCoreApplication;
+class WebPage;
+class Config; // Still need to reference the singleton config
+class Terminal;
+class CookieJar; // For global cookie jar
+class Repl; // For interactive mode
+class FileSystem; // For fs module
+class ChildProcess; // For child_process module
+class System; // For system module
+class WebServer; // For webserver module
+class QCommandLine; // Your custom command line parser
 
-class Phantom : public QObject {
-    Q_OBJECT // Line 17: Required for QObject functionality and Q_PROPERTY
-
-    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings) // Line 19: Existing property
-        Q_PROPERTY(QString libraryPath READ libraryPath WRITE setLibraryPath) // Line 20: Existing property
-        Q_PROPERTY(QString outputEncoding READ outputEncoding WRITE setOutputEncoding) // Line 21: Existing property
-        Q_PROPERTY(QVariantMap version READ version) // Line 22: Existing property
-        Q_PROPERTY(QObject* page READ page) // Line 23: Existing property
-        Q_PROPERTY(bool cookiesEnabled READ areCookiesEnabled WRITE setCookiesEnabled) // Line 24: Existing property
-        Q_PROPERTY(QVariantList cookies READ cookies WRITE setCookies) // Line 25: Existing property
-        Q_PROPERTY(int remoteDebugPort READ remoteDebugPort) // Line 26: Existing property
-
-        private :
-        // Private constructor: the Phantom class is a singleton
-        // Line 29: Existing constructor declaration
-        Phantom(QObject* parent = 0);
-    // Line 30: Existing init method
-    void init();
+class Phantom : public QObject
+{
+    Q_OBJECT
 
 public:
-    // Line 33: Existing static instance method
-    static Phantom* instance();
-    // Line 34: Existing virtual destructor
-    virtual ~Phantom();
+    explicit Phantom(QCoreApplication* app);
+    ~Phantom();
 
-    // Line 36: Existing defaultPageSettings getter
-    QVariantMap defaultPageSettings() const;
+    // --- Core Lifecycle ---
+    bool init(int argc, char** argv); // Handles command-line parsing and initial setup
+    int executeScript(const QString& scriptPath, const QStringList& scriptArgs);
+    void startInteractive(); // For REPL mode
 
-    // Line 38: Existing outputEncoding getter
-    QString outputEncoding() const;
-    // Line 39: Existing setOutputEncoding setter
-    void setOutputEncoding(const QString& encoding);
+    // --- Properties exposed to JavaScript (Q_PROPERTY) ---
+    Q_PROPERTY(QString version READ version CONSTANT) // This should be dynamic now
+    Q_PROPERTY(QString libraryPath READ libraryPath CONSTANT)
+    Q_PROPERTY(QString scriptName READ scriptName CONSTANT)
+    Q_PROPERTY(QStringList args READ args CONSTANT) // Command-line arguments to the script
+    Q_PROPERTY(QStringList casperPaths READ casperPaths WRITE setCasperPaths NOTIFY casperPathsChanged)
+    Q_PROPERTY(QStringList env READ env CONSTANT) // Environment variables
+    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY defaultPageSettingsChanged)
+    Q_PROPERTY(bool cookiesEnabled READ cookiesEnabled WRITE setCookiesEnabled NOTIFY cookiesEnabledChanged)
+    Q_PROPERTY(QString cookiesFile READ cookiesFile WRITE setCookiesFile NOTIFY cookiesFileChanged)
+    Q_PROPERTY(int remoteDebugPort READ remoteDebugPort WRITE setRemoteDebugPort NOTIFY remoteDebugPortChanged) // NEW PROPERTY
+    Q_PROPERTY(bool printStackTrace READ printStackTrace WRITE setPrintStackTrace NOTIFY printStackTraceChanged)
+    Q_PROPERTY(QString outputEncoding READ outputEncoding WRITE setOutputEncoding NOTIFY outputEncodingChanged)
+    Q_PROPERTY(QString scriptEncoding READ scriptEncoding WRITE setScriptEncoding NOTIFY scriptEncodingChanged)
+    Q_PROPERTY(QString scriptLanguage READ scriptLanguage WRITE setScriptEncoding) // Typo: Should be setScriptLanguage, not setScriptEncoding
 
-    // Line 41: Existing execute method
-    bool execute();
-    // Line 42: Existing returnValue getter
-    int returnValue() const;
+    // --- Methods exposed to JavaScript (Q_INVOKABLE) ---
+    Q_INVOKABLE QObject* createWebPage(); // Creates a new WebPage instance
+    Q_INVOKABLE void exit(int code = 0); // Exits the application
+    Q_INVOKABLE void addCookie(const QVariantMap& cookie); // Adds a cookie globally
+    Q_INVOKABLE void deleteCookie(const QString& name); // Deletes a cookie globally
+    Q_INVOKABLE void clearCookies(); // Clears all cookies globally
+    Q_INVOKABLE QVariantList cookies(); // Gets all cookies globally
+    Q_INVOKABLE void injectJs(const QString& jsFilePath); // Injects JS globally
+    Q_INVOKABLE void setProxy(const QString& ip, const qint64& port = 0, const QString& proxyType = QString(), const QString& user = QString(), const QString& password = QString()); // Set proxy globally
+    Q_INVOKABLE void setProxyAuth(const QString& user, const QString& password); // Set proxy authentication
+    Q_INVOKABLE void debugExit(int code = 0); // For debugging purposes, exits
+    Q_INVOKABLE void addEventListener(const QString& name, QObject* callback); // For adding global event listeners
+    Q_INVOKABLE void removeEventListener(const QString& name, QObject* callback); // For removing global event listeners
+    Q_INVOKABLE QObject* evaluate(const QString& func, const QVariantList& args); // Global evaluate in the current page
 
-    // Line 44: Existing libraryPath getter
+    // --- Getters for Q_PROPERTY ---
+    QString version() const;
     QString libraryPath() const;
-    // Line 45: Existing setLibraryPath setter
-    void setLibraryPath(const QString& libraryPath);
+    QString scriptName() const;
+    QStringList args() const; // Script arguments passed to Phantom
+    QStringList casperPaths() const;
+    QStringList env() const;
+    QVariantMap defaultPageSettings() const;
+    bool cookiesEnabled() const;
+    QString cookiesFile() const;
+    int remoteDebugPort() const; // NEW GETTER
+    bool printStackTrace() const;
+    QString outputEncoding() const;
+    QString scriptEncoding() const;
+    QString scriptLanguage() const; // Fixed getter name
 
-    // Line 47: Existing version getter
-    QVariantMap version() const;
+    // --- Setters for Q_PROPERTY ---
+    void setCasperPaths(const QStringList& paths);
+    void setDefaultPageSettings(const QVariantMap& settings);
+    void setCookiesEnabled(bool enabled);
+    void setCookiesFile(const QString& path);
+    void setRemoteDebugPort(int port); // NEW SETTER
+    void setPrintStackTrace(bool enable);
+    void setOutputEncoding(const QString& encoding);
+    void setScriptEncoding(const QString& encoding);
+    void setScriptLanguage(const QString& language);
 
-    // Line 49: Existing page getter
-    QObject* page() const;
-
-    /**
-     * Pointer to the Config loaded at startup.
-     * The configuration is determined by the commandline parameters.
-     *
-     * @brief config
-     * @return Pointer to the current Config(uration)
-     */
-    // Line 58: Existing config getter
-    Config* config();
-
-    // Line 60: Existing printDebugMessages getter
-    bool printDebugMessages() const;
-
-    // Line 62: Existing areCookiesEnabled getter
-    bool areCookiesEnabled() const;
-    // Line 63: Existing setCookiesEnabled setter
-    void setCookiesEnabled(const bool value);
-
-    // Line 65: Existing remoteDebugPort getter
-    int remoteDebugPort() const;
-
-    /**
-     * Create `child_process` module instance
-     */
-    // Line 70: Existing _createChildProcess invokable method
-    Q_INVOKABLE QObject* _createChildProcess();
-
-    // Line 72: New method to retrieve all managed WebPages (for WebPage::pages())
-    const QList<QPointer<WebPage>>& allPages() const;
-
-public slots:
-    // Line 75: Existing createCookieJar slot
-    QObject* createCookieJar(const QString& filePath);
-    // Line 76: Existing createWebPage slot
-    QObject* createWebPage();
-    // Line 77: Existing createWebServer slot
-    QObject* createWebServer();
-    // Line 78: Existing createFilesystem slot
-    QObject* createFilesystem();
-    // Line 79: Existing createSystem slot
-    QObject* createSystem();
-    // Line 80: Existing createCallback slot
-    QObject* createCallback();
-    // Line 81: Existing loadModule slot
-    void loadModule(const QString& moduleSource, const QString& filename);
-    // Line 82: Existing injectJs slot
-    bool injectJs(const QString& jsFilePath);
-
-    /**
-     * Allows to set cookies into the CookieJar.
-     * Pages will be able to access only the cookies they are supposed to see
-     * given their URL.
-     *
-     * Cookies are expected in the format:
-     * <pre>
-     * {
-     * "name"      : "cookie name (string)",
-     * "value"     : "cookie value (string)",
-     * "domain"    : "cookie domain (string)",
-     * "path"      : "cookie path (string, optional)",
-     * "httponly" : "http only cookie (boolean, optional)",
-     * "secure"    : "secure cookie (boolean, optional)",
-     * "expires"   : "expiration date (string, GMT format, optional)"
-     * }
-     * </pre>
-     * @brief setCookies
-     * @param cookies Expects a QList of QVariantMaps
-     * @return Boolean "true" if at least 1 cookie was set
-     */
-    // Line 102: Existing setCookies slot
-    bool setCookies(const QVariantList& cookies);
-    /**
-     * All the Cookies in the CookieJar
-     *
-     * @see WebPage::setCookies for details on the format
-     * @brief cookies
-     * @return QList of QVariantMap cookies visible to this Page, at the current
-     * URL.
-     */
-    // Line 111: Existing cookies getter
-    QVariantList cookies() const;
-    /**
-     * Add a Cookie (in QVariantMap format) into the CookieJar
-     * @see WebPage::setCookies for details on the format
-     * @brief addCookie
-     * @param cookie Cookie in QVariantMap format
-     * @return Boolean "true" if cookie was added
-     */
-    // Line 120: Existing addCookie slot
-    bool addCookie(const QVariantMap& cookie);
-    /**
-     * Delete cookie by name from the CookieJar
-     * @brief deleteCookie
-     * @param cookieName Name of the Cookie to delete
-     * @return Boolean "true" if cookie was deleted
-     */
-    // Line 127: Existing deleteCookie slot
-    bool deleteCookie(const QString& cookieName);
-    /**
-     * Delete All Cookies from the CookieJar
-     * @brief clearCookies
-     */
-    // Line 132: Existing clearCookies slot
-    void clearCookies();
-
-    /**
-     * Set the application proxy
-     * @brief setProxy
-     * @param ip The proxy ip
-     * @param port The proxy port
-     * @param proxyType The type of this proxy
-     */
-    // Line 140: Existing setProxy slot
-    void setProxy(const QString& ip, const qint64& port = 80, const QString& proxyType = "http",
-        const QString& user = QString(), const QString& password = QString());
-
-    // Line 142: Existing proxy getter
-    QString proxy();
-
-    // exit() will not exit in debug mode. debugExit() will always exit.
-    // Line 145: Existing exit slot
-    void exit(int code = 0);
-    // Line 146: Existing debugExit slot
-    void debugExit(int code = 0);
-
-    // URL utilities
-
-    /**
-     * Resolve a URL relative to a base.
-     */
-    // Line 152: Existing resolveRelativeUrl method
-    QString resolveRelativeUrl(QString url, QString base);
-
-    /**
-     * Decode a URL to human-readable form.
-     * @param url The URL to be decoded.
-     *
-     * This operation potentially destroys information.  It should only be
-     * used when displaying URLs to the user, not when recording URLs for
-     * later processing.  Quoting http://qt-project.org/doc/qt-5/qurl.html:
-     *
-     * _Full decoding_
-     *
-     * This [operation] should be used with care, since there are
-     * two conditions that cannot be reliably represented in the
-     * returned QString. They are:
-     *
-     * + Non-UTF-8 sequences: URLs may contain sequences of
-     * percent-encoded characters that do not form valid UTF-8
-     * sequences. Since URLs need to be decoded using UTF-8, any
-     * decoder failure will result in the QString containing one or
-     * more replacement characters where the sequence existed.
-     *
-     * + Encoded delimiters: URLs are also allowed to make a
-     * distinction between a delimiter found in its literal form and
-     * its equivalent in percent-encoded form. This is most commonly
-     * found in the query, but is permitted in most parts of the URL.
-     */
-    // Line 180: Existing fullyDecodeUrl method
-    QString fullyDecodeUrl(QString url);
+    // --- Internal Getters ---
+    bool isInteractive() const; // Is PhantomJS running in interactive mode?
+    QString scriptPath() const; // The full path to the script being run
+    QStringList scriptArgs() const; // Arguments *to the script* (different from application arguments)
+    bool helpRequested() const; // Indicates if --help was requested
+    bool versionRequested() const; // Indicates if --version was requested
+    void showHelp(); // Prints help and exits
+    void showVersion(); // Prints version and exits
 
 signals:
-    // Line 183: Existing aboutToExit signal
-    void aboutToExit(int code);
+    // Global signals
+    void libraryPathChanged(const QString& libraryPath);
+    void casperPathsChanged(const QStringList& paths);
+    void defaultPageSettingsChanged(const QVariantMap& settings);
+    void cookiesEnabledChanged(bool enabled);
+    void cookiesFileChanged(const QString& path);
+    void remoteDebugPortChanged(int port); // NEW SIGNAL
+    void printStackTraceChanged(bool enable);
+    void outputEncodingChanged(const QString& encoding);
+    void scriptEncodingChanged(const QString& encoding);
+    void scriptLanguageChanged(const QString& language);
 
 private slots:
-    // Line 186: Existing printConsoleMessage slot
-    void printConsoleMessage(const QString& msg);
-
-    // Line 188: Existing onInitialized slot
-    void onInitialized();
+    void onPageCreated(IEngineBackend* newPageBackend); // Handles new pages from backend
+    void onInitialized(); // Called when the initial page's JS context is ready
+    void onExit(int exitCode); // Handles application exit
+    void onRemoteDebugPortChanged(); // For internal use after setting port
 
 private:
-    // Line 191: Existing doExit method
-    void doExit(int code);
+    QCoreApplication* m_app;
+    QPointer<WebPage> m_page; // The default WebPage instance
+    Config* m_config; // Singleton instance of Config
+    Terminal* m_terminal; // Singleton instance of Terminal
+    CookieJar* m_cookieJar; // Global cookie jar
 
-    // Line 193: Existing m_scriptFileEnc member
-    Encoding m_scriptFileEnc;
-    // Line 194: Existing m_page member
-    WebPage* m_page;
-    // Line 195: Existing m_terminated member
-    bool m_terminated;
-    // Line 196: Existing m_returnValue member
-    int m_returnValue;
-    // Line 197: Existing m_script member
-    QString m_script;
-    // Line 198: Existing m_defaultPageSettings member
+    Repl* m_repl; // For interactive mode
+    FileSystem* m_fs; // fs module
+    ChildProcess* m_childProcess; // child_process module
+    System* m_system; // system module
+    WebServer* m_webserver; // webserver module
+
+    QCommandLine* m_cmdLineParser; // Our custom command line parser instance
+
+    QString m_scriptPath; // Full path to the script being executed
+    QStringList m_scriptArgs; // Arguments passed *to the script*
+    QStringList m_appArgs; // Arguments passed *to the phantomjs executable*
+
+    QStringList m_casperPaths;
     QVariantMap m_defaultPageSettings;
-    // Line 199: Existing m_filesystem member
-    FileSystem* m_filesystem;
-    // Line 200: Existing m_system member
-    System* m_system;
-    // Line 201: Existing m_childprocess member
-    ChildProcess* m_childprocess;
-    // Line 202: Existing m_pages member
-    QList<QPointer<WebPage>> m_pages;
-    // Line 203: Existing m_servers member
-    QList<QPointer<WebServer>> m_servers;
-    // Line 204: Existing m_config member
-    Config m_config;
-    // Line 205: Existing m_defaultCookieJar member
-    CookieJar* m_defaultCookieJar;
-    // Line 206: Existing m_defaultDpi member
-    qreal m_defaultDpi;
+    int m_remoteDebugPort; // NEW MEMBER
+    bool m_printStackTrace;
 
-    // Line 208: Removed 'friend class CustomPage;' as CustomPage is no longer used.
+    bool m_isInteractive; // Flag for interactive mode
+    bool m_helpRequested;
+    bool m_versionRequested;
+
+    // Private helper methods
+    void setupGlobalObjects();
+    void cleanupGlobalObjects();
+    void parseCommandLine(int argc, char** argv);
+    void exposeGlobalObjectsToJs();
 };
 
 #endif // PHANTOM_H
+
