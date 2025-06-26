@@ -51,8 +51,7 @@ class System; // For system module
 class WebServer; // For webserver module
 class QCommandLine; // Your custom command line parser
 
-class Phantom : public QObject
-{
+class Phantom : public QObject {
     Q_OBJECT
 
 public:
@@ -71,14 +70,17 @@ public:
     Q_PROPERTY(QStringList args READ args CONSTANT) // Command-line arguments to the script
     Q_PROPERTY(QStringList casperPaths READ casperPaths WRITE setCasperPaths NOTIFY casperPathsChanged)
     Q_PROPERTY(QStringList env READ env CONSTANT) // Environment variables
-    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY defaultPageSettingsChanged)
+    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY
+            defaultPageSettingsChanged)
     Q_PROPERTY(bool cookiesEnabled READ cookiesEnabled WRITE setCookiesEnabled NOTIFY cookiesEnabledChanged)
     Q_PROPERTY(QString cookiesFile READ cookiesFile WRITE setCookiesFile NOTIFY cookiesFileChanged)
-    Q_PROPERTY(int remoteDebugPort READ remoteDebugPort WRITE setRemoteDebugPort NOTIFY remoteDebugPortChanged) // NEW PROPERTY
+    Q_PROPERTY(
+        int remoteDebugPort READ remoteDebugPort WRITE setRemoteDebugPort NOTIFY remoteDebugPortChanged) // NEW PROPERTY
     Q_PROPERTY(bool printStackTrace READ printStackTrace WRITE setPrintStackTrace NOTIFY printStackTraceChanged)
     Q_PROPERTY(QString outputEncoding READ outputEncoding WRITE setOutputEncoding NOTIFY outputEncodingChanged)
     Q_PROPERTY(QString scriptEncoding READ scriptEncoding WRITE setScriptEncoding NOTIFY scriptEncodingChanged)
-    Q_PROPERTY(QString scriptLanguage READ scriptLanguage WRITE setScriptEncoding) // Typo: Should be setScriptLanguage, not setScriptEncoding
+    Q_PROPERTY(QString scriptLanguage READ scriptLanguage WRITE
+            setScriptEncoding) // Typo: Should be setScriptLanguage, not setScriptEncoding
 
     // --- Methods exposed to JavaScript (Q_INVOKABLE) ---
     Q_INVOKABLE QObject* createWebPage(); // Creates a new WebPage instance
@@ -88,7 +90,8 @@ public:
     Q_INVOKABLE void clearCookies(); // Clears all cookies globally
     Q_INVOKABLE QVariantList cookies(); // Gets all cookies globally
     Q_INVOKABLE void injectJs(const QString& jsFilePath); // Injects JS globally
-    Q_INVOKABLE void setProxy(const QString& ip, const qint64& port = 0, const QString& proxyType = QString(), const QString& user = QString(), const QString& password = QString()); // Set proxy globally
+    Q_INVOKABLE void setProxy(const QString& ip, const qint64& port = 0, const QString& proxyType = QString(),
+        const QString& user = QString(), const QString& password = QString()); // Set proxy globally
     Q_INVOKABLE void setProxyAuth(const QString& user, const QString& password); // Set proxy authentication
     Q_INVOKABLE void debugExit(int code = 0); // For debugging purposes, exits
     Q_INVOKABLE void addEventListener(const QString& name, QObject* callback); // For adding global event listeners
@@ -186,4 +189,3 @@ private:
 };
 
 #endif // PHANTOM_H
-
