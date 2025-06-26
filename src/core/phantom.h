@@ -105,6 +105,7 @@ public:
 
 signals:
     // Global signals
+    void aboutToExit();
     void libraryPathChanged(const QString& libraryPath);
     void casperPathsChanged(const QStringList& paths);
     void defaultPageSettingsChanged(const QVariantMap& settings);
