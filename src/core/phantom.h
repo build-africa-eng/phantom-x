@@ -36,29 +36,33 @@
 #include <QStringList>
 #include <QVariantMap>
 #include <QVariantList>
-#include <QNetworkProxy> // For setProxy method
+#include <QNetworkProxy>
 
 // Forward declarations
 class QCoreApplication;
 class WebPage;
-class Config; // Still need to reference the singleton config
+class Config;
 class Terminal;
-class CookieJar; // For global cookie jar
-class Repl; // For interactive mode
-class FileSystem; // For fs module
-class ChildProcess; // For child_process module
-class System; // For system module
-class WebServer; // For webserver module
-class QCommandLine; // Your custom command line parser
+class CookieJar;
+class Repl;
+class FileSystem;
+class ChildProcess;
+class System;
+class WebServer;
+class QCommandLine;
 
-class Phantom : public QObject {
+// NEW: Forward declare IEngineBackend
+class IEngineBackend;
+
+class Phantom : public QObject
+{
     Q_OBJECT
 
 public:
     explicit Phantom(QCoreApplication* app);
     ~Phantom();
 
-    // --- Core Lifecycle ---
+// --- Core Lifecycle ---
     bool init(int argc, char** argv); // Handles command-line parsing and initial setup
     int executeScript(const QString& scriptPath, const QStringList& scriptArgs);
     void startInteractive(); // For REPL mode
