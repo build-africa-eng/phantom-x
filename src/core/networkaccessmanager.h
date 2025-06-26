@@ -43,8 +43,7 @@
 class CookieJar;
 class Config;
 
-class NetworkAccessManager : public QNetworkAccessManager
-{
+class NetworkAccessManager : public QNetworkAccessManager {
     Q_OBJECT
 
 public:
@@ -75,7 +74,8 @@ signals:
     void proxyAuthenticationRequired(const QNetworkProxy& proxy, QAuthenticator* authenticator);
 
 protected:
-    QNetworkReply* createRequest(QNetworkAccessManager::Operation op, const QNetworkRequest& request, QIODevice* outgoingData = nullptr) override;
+    QNetworkReply* createRequest(QNetworkAccessManager::Operation op, const QNetworkRequest& request,
+        QIODevice* outgoingData = nullptr) override;
 
 private slots:
     void handleFinished(QNetworkReply* reply);
@@ -97,4 +97,3 @@ private:
 };
 
 #endif // NETWORKACCESSMANAGER_H
-
