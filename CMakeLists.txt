@@ -62,7 +62,7 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     Qt5::Core
     Qt5::Network
-    Qt5::Gui     # <--- ADDED Qt5::Gui
+    Qt5::Gui      # <--- ADDED Qt5::Gui
     Qt5::Widgets # <--- ADDED Qt5::Widgets
     # Qt5::WebKitWidgets # <--- REMOVED THIS LINE
     Threads::Threads
