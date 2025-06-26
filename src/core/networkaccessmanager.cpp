@@ -19,12 +19,13 @@ NetworkAccessManager::NetworkAccessManager(QObject* parent)
     , m_cookieJar(nullptr) // Will be set by setCookieJar call from Phantom
     , m_ignoreSslErrors(false)
     , m_resourceTimeout(0)
-    , m_maxAuthAttempts(3)
-{
+    , m_maxAuthAttempts(3) {
     connect(this, &QNetworkAccessManager::finished, this, &NetworkAccessManager::handleFinished);
     connect(this, &QNetworkAccessManager::sslErrors, this, &NetworkAccessManager::handleSslErrors);
-    connect(this, &QNetworkAccessManager::authenticationRequired, this, &NetworkAccessManager::handleAuthenticationRequired);
-    connect(this, &QNetworkAccessManager::proxyAuthenticationRequired, this, &NetworkAccessManager::handleProxyAuthenticationRequired);
+    connect(this, &QNetworkAccessManager::authenticationRequired, this,
+        &NetworkAccessManager::handleAuthenticationRequired);
+    connect(this, &QNetworkAccessManager::proxyAuthenticationRequired, this,
+        &NetworkAccessManager::handleProxyAuthenticationRequired);
 
     setIgnoreSslErrors(m_config->ignoreSslErrors());
     setSslProtocol(m_config->sslProtocol());
@@ -43,7 +44,8 @@ NetworkAccessManager::NetworkAccessManager(QObject* parent)
     connect(m_config, &Config::sslProtocolChanged, this, &NetworkAccessManager::setSslProtocol);
     connect(m_config, &Config::sslCiphersChanged, this, &NetworkAccessManager::setSslCiphers);
     connect(m_config, &Config::sslCertificatesPathChanged, this, &NetworkAccessManager::setSslCertificatesPath);
-    connect(m_config, &Config::sslClientCertificateFileChanged, this, &NetworkAccessManager::setSslClientCertificateFile);
+    connect(
+        m_config, &Config::sslClientCertificateFileChanged, this, &NetworkAccessManager::setSslClientCertificateFile);
     connect(m_config, &Config::sslClientKeyFileChanged, this, &NetworkAccessManager::setSslClientKeyFile);
     connect(m_config, &Config::sslClientKeyPassphraseChanged, this, &NetworkAccessManager::setSslClientKeyPassphrase);
     connect(m_config, &Config::resourceTimeoutChanged, this, &NetworkAccessManager::setResourceTimeout);
@@ -53,13 +55,11 @@ NetworkAccessManager::NetworkAccessManager(QObject* parent)
     connect(m_config, &Config::diskCachePathChanged, this, &NetworkAccessManager::setDiskCachePath);
 }
 
-NetworkAccessManager::~NetworkAccessManager()
-{
+NetworkAccessManager::~NetworkAccessManager() {
     // No specific cleanup needed for m_cookieJar as it's owned by Phantom
 }
 
-void NetworkAccessManager::setCookieJar(CookieJar* cookieJar)
-{
+void NetworkAccessManager::setCookieJar(CookieJar* cookieJar) {
     if (m_cookieJar != cookieJar) {
         if (m_cookieJar) {
             disconnect(m_cookieJar, nullptr, this, nullptr); // Disconnect old jar signals
@@ -70,8 +70,8 @@ void NetworkAccessManager::setCookieJar(CookieJar* cookieJar)
     }
 }
 
-QNetworkReply* NetworkAccessManager::createRequest(QNetworkAccessManager::Operation op, const QNetworkRequest& request, QIODevice* outgoingData)
-{
+QNetworkReply* NetworkAccessManager::createRequest(
+    QNetworkAccessManager::Operation op, const QNetworkRequest& request, QIODevice* outgoingData) {
     QNetworkRequest newRequest = request;
     QNetworkReply* reply = QNetworkAccessManager::createRequest(op, newRequest, outgoingData);
 
@@ -108,8 +108,7 @@ QNetworkReply* NetworkAccessManager::createRequest(QNetworkAccessManager::Operat
     return reply;
 }
 
-void NetworkAccessManager::handleFinished(QNetworkReply* reply)
-{
+void NetworkAccessManager::handleFinished(QNetworkReply* reply) {
     QVariantMap responseData;
     responseData["id"] = QVariant::fromValue((qulonglong)reply);
     responseData["url"] = reply->url().toString();
@@ -131,7 +130,7 @@ void NetworkAccessManager::handleFinished(QNetworkReply* reply)
         errorData["errorCode"] = reply->error();
 
         if (reply->error() == QNetworkReply::OperationCanceledError) {
-             emit resourceTimeout(errorData);
+            emit resourceTimeout(errorData);
         } else {
             emit resourceError(errorData);
         }
@@ -142,49 +141,44 @@ void NetworkAccessManager::handleFinished(QNetworkReply* reply)
     reply->deleteLater();
 }
 
-void NetworkAccessManager::handleSslErrors(QNetworkReply* reply, const QList<QSslError>& errors)
-{
+void NetworkAccessManager::handleSslErrors(QNetworkReply* reply, const QList<QSslError>& errors) {
     if (m_ignoreSslErrors) {
         qDebug() << "NetworkAccessManager: Ignoring SSL errors for" << reply->url().toString();
         reply->ignoreSslErrors();
     } else {
         for (const QSslError& error : errors) {
-            qWarning() << "NetworkAccessManager: SSL Error for" << reply->url().toString() << ":" << error.errorString();
+            qWarning() << "NetworkAccessManager: SSL Error for" << reply->url().toString() << ":"
+                       << error.errorString();
         }
     }
 }
 
-void NetworkAccessManager::handleAuthenticationRequired(QNetworkReply* reply, QAuthenticator* authenticator)
-{
+void NetworkAccessManager::handleAuthenticationRequired(QNetworkReply* reply, QAuthenticator* authenticator) {
     qDebug() << "NetworkAccessManager: Authentication required for" << reply->url().toString();
     emit authenticationRequired(reply, authenticator);
 }
 
-void NetworkAccessManager::handleProxyAuthenticationRequired(const QNetworkProxy& proxy, QAuthenticator* authenticator)
-{
+void NetworkAccessManager::handleProxyAuthenticationRequired(
+    const QNetworkProxy& proxy, QAuthenticator* authenticator) {
     qDebug() << "NetworkAccessManager: Proxy authentication required for" << proxy.hostName();
     emit proxyAuthenticationRequired(proxy, authenticator);
 }
 
-void NetworkAccessManager::handleReadProgress(qint64 bytesReceived, qint64 bytesTotal)
-{
+void NetworkAccessManager::handleReadProgress(qint64 bytesReceived, qint64 bytesTotal) {
     Q_UNUSED(bytesReceived);
     Q_UNUSED(bytesTotal);
 }
 
-void NetworkAccessManager::handleUploadProgress(qint64 bytesSent, qint64 bytesTotal)
-{
+void NetworkAccessManager::handleUploadProgress(qint64 bytesSent, qint64 bytesTotal) {
     Q_UNUSED(bytesSent);
     Q_UNUSED(bytesTotal);
 }
 
-void NetworkAccessManager::handleEncrypted(QNetworkReply* reply)
-{
+void NetworkAccessManager::handleEncrypted(QNetworkReply* reply) {
     qDebug() << "NetworkAccessManager: Encrypted connection established for" << reply->url().toString();
 }
 
-void NetworkAccessManager::handleRedirected(QNetworkReply* reply, const QUrl& url)
-{
+void NetworkAccessManager::handleRedirected(QNetworkReply* reply, const QUrl& url) {
     qDebug() << "NetworkAccessManager: Redirected from" << reply->url().toString() << "to" << url.toString();
 }
 
