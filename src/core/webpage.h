@@ -43,7 +43,7 @@
 #include <QNetworkRequest> // Needed for openUrl, load function
 #include <QNetworkAccessManager> // Needed for QNetworkAccessManager::Operation
 
-#include "core/ienginebackend.h" // The new abstraction
+#include "ienginebackend.h" // The new abstraction
 #include "core/cookiejar.h" // Still needed for public API
 // NetworkAccessManager is now largely handled internally by IEngineBackend
 // #include "networkaccessmanager.h" // Removed as direct usage moves to backend
