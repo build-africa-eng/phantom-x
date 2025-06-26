@@ -39,7 +39,8 @@
 
 struct QCommandLineConfigEntry; // Forward declare the struct
 
-class Config : public QObject {
+class Config : public QObject
+{
     Q_OBJECT
 
 public:
@@ -64,44 +65,34 @@ public:
     Q_PROPERTY(bool ignoreSslErrors READ ignoreSslErrors WRITE setIgnoreSslErrors NOTIFY ignoreSslErrorsChanged)
     Q_PROPERTY(QString sslProtocol READ sslProtocol WRITE setSslProtocol NOTIFY sslProtocolChanged)
     Q_PROPERTY(QString sslCiphers READ sslCiphers WRITE setSslCiphers NOTIFY sslCiphersChanged)
-    Q_PROPERTY(QString sslCertificatesPath READ sslCertificatesPath WRITE setSslCertificatesPath NOTIFY
-            sslCertificatesPathChanged)
-    Q_PROPERTY(QString sslClientCertificateFile READ sslClientCertificateFile WRITE setSslClientCertificateFile NOTIFY
-            sslClientCertificateFileChanged)
+    Q_PROPERTY(QString sslCertificatesPath READ sslCertificatesPath WRITE setSslCertificatesPath NOTIFY sslCertificatesPathChanged)
+    Q_PROPERTY(QString sslClientCertificateFile READ sslClientCertificateFile WRITE setSslClientCertificateFile NOTIFY sslClientCertificateFileChanged)
     Q_PROPERTY(QString sslClientKeyFile READ sslClientKeyFile WRITE setSslClientKeyFile NOTIFY sslClientKeyFileChanged)
-    Q_PROPERTY(QByteArray sslClientKeyPassphrase READ sslClientKeyPassphrase WRITE setSslClientKeyPassphrase NOTIFY
-            sslClientKeyPassphraseChanged)
+    Q_PROPERTY(QByteArray sslClientKeyPassphrase READ sslClientKeyPassphrase WRITE setSslClientKeyPassphrase NOTIFY sslClientKeyPassphraseChanged)
     Q_PROPERTY(int resourceTimeout READ resourceTimeout WRITE setResourceTimeout NOTIFY resourceTimeoutChanged)
     Q_PROPERTY(int maxAuthAttempts READ maxAuthAttempts WRITE setMaxAuthAttempts NOTIFY maxAuthAttemptsChanged)
 
     // --- JavaScript / Page Security Settings ---
     Q_PROPERTY(bool javascriptEnabled READ javascriptEnabled WRITE setJavascriptEnabled NOTIFY javascriptEnabledChanged)
-    Q_PROPERTY(
-        bool webSecurityEnabled READ webSecurityEnabled WRITE setWebSecurityEnabled NOTIFY webSecurityEnabledChanged)
+    Q_PROPERTY(bool webSecurityEnabled READ webSecurityEnabled WRITE setWebSecurityEnabled NOTIFY webSecurityEnabledChanged)
     Q_PROPERTY(bool webGLEnabled READ webGLEnabled WRITE setWebGLEnabled NOTIFY webGLEnabledChanged)
-    Q_PROPERTY(bool javascriptCanOpenWindows READ javascriptCanOpenWindows WRITE setJavascriptCanOpenWindows NOTIFY
-            javascriptCanOpenWindowsChanged)
-    Q_PROPERTY(bool javascriptCanCloseWindows READ javascriptCanCloseWindows WRITE setJavascriptCanCloseWindows NOTIFY
-            javascriptCanCloseWindowsChanged)
-    Q_PROPERTY(bool localToRemoteUrlAccessEnabled READ localToRemoteUrlAccessEnabled WRITE
-            setLocalToRemoteUrlAccessEnabled NOTIFY localToRemoteUrlAccessEnabledChanged)
+    Q_PROPERTY(bool javascriptCanOpenWindows READ javascriptCanOpenWindows WRITE setJavascriptCanOpenWindows NOTIFY javascriptCanOpenWindowsChanged)
+    Q_PROPERTY(bool javascriptCanCloseWindows READ javascriptCanCloseWindows WRITE setJavascriptCanCloseWindows NOTIFY javascriptCanCloseWindowsChanged)
+    Q_PROPERTY(bool localToRemoteUrlAccessEnabled READ localToRemoteUrlAccessEnabled WRITE setLocalToRemoteUrlAccessEnabled NOTIFY localToRemoteUrlAccessEnabledChanged)
     Q_PROPERTY(bool autoLoadImages READ autoLoadImages WRITE setAutoLoadImages NOTIFY autoLoadImagesChanged)
 
     // --- Local/Offline Storage Settings ---
     Q_PROPERTY(QString localStoragePath READ localStoragePath WRITE setLocalStoragePath NOTIFY localStoragePathChanged)
     Q_PROPERTY(int localStorageQuota READ localStorageQuota WRITE setLocalStorageQuota NOTIFY localStorageQuotaChanged)
-    Q_PROPERTY(
-        QString offlineStoragePath READ offlineStoragePath WRITE setOfflineStoragePath NOTIFY offlineStoragePathChanged)
-    Q_PROPERTY(
-        int offlineStorageQuota READ offlineStorageQuota WRITE setOfflineStorageQuota NOTIFY offlineStorageQuotaChanged)
+    Q_PROPERTY(QString offlineStoragePath READ offlineStoragePath WRITE setOfflineStoragePath NOTIFY offlineStoragePathChanged)
+    Q_PROPERTY(int offlineStorageQuota READ offlineStorageQuota WRITE setOfflineStorageQuota NOTIFY offlineStorageQuotaChanged)
 
     // --- Printing Settings ---
     Q_PROPERTY(bool printHeader READ printHeader WRITE setPrintHeader NOTIFY printHeaderChanged)
     Q_PROPERTY(bool printFooter READ printFooter WRITE setPrintFooter NOTIFY printFooterChanged)
 
     // --- Page Settings (as a map, directly used by WebPage) ---
-    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY
-            defaultPageSettingsChanged)
+    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY defaultPageSettingsChanged)
 
     // Getters
     bool debug() const;
@@ -139,74 +130,74 @@ public:
     QVariantMap defaultPageSettings() const;
 
     // Setters
-    void setDebug(const bool debug);
+    void setDebug(bool debug);
     void setLogLevel(const QString& level);
     void setOutputEncoding(const QString& encoding);
     void setScriptEncoding(const QString& encoding);
     void setScriptLanguage(const QString& language);
-    void setCookiesEnabled(const bool enabled);
+    void setCookiesEnabled(bool enabled);
     void setCookiesFile(const QString& path);
-    void setDiskCacheEnabled(const bool enabled);
-    void setMaxDiskCacheSize(const int size);
+    void setDiskCacheEnabled(bool enabled);
+    void setMaxDiskCacheSize(int size);
     void setDiskCachePath(const QString& path);
-    void setIgnoreSslErrors(const bool ignore);
+    void setIgnoreSslErrors(bool ignore);
     void setSslProtocol(const QString& protocol);
     void setSslCiphers(const QString& ciphers);
     void setSslCertificatesPath(const QString& path);
     void setSslClientCertificateFile(const QString& path);
     void setSslClientKeyFile(const QString& path);
     void setSslClientKeyPassphrase(const QByteArray& passphrase);
-    void setResourceTimeout(const int timeout);
-    void setMaxAuthAttempts(const int attempts);
-    void setJavascriptEnabled(const bool enabled);
-    void setWebSecurityEnabled(const bool enabled);
-    void setWebGLEnabled(const bool enabled);
-    void setJavascriptCanOpenWindows(const bool enabled);
-    void setJavascriptCanCloseWindows(const bool enabled);
-    void setLocalToRemoteUrlAccessEnabled(const bool enabled);
-    void setAutoLoadImages(const bool enabled);
+    void setResourceTimeout(int timeout);
+    void setMaxAuthAttempts(int attempts);
+    void setJavascriptEnabled(bool enabled);
+    void setWebSecurityEnabled(bool enabled);
+    void setWebGLEnabled(bool enabled);
+    void setJavascriptCanOpenWindows(bool enabled);
+    void setJavascriptCanCloseWindows(bool enabled);
+    void setLocalToRemoteUrlAccessEnabled(bool enabled);
+    void setAutoLoadImages(bool enabled);
     void setLocalStoragePath(const QString& path);
     void setLocalStorageQuota(int quota);
     void setOfflineStoragePath(const QString& path);
-    void setOfflineStorageQuota(const int quota);
-    void setPrintHeader(const bool enable);
-    void setPrintFooter(const bool& enable);
-    void setDefaultPageSettings(const QVariantMap& settings);
+    void setOfflineStorageQuota(int quota);
+    void setPrintHeader(bool enable);
+    void setPrintFooter(bool enable);
+    void setDefaultPageSettings(const QVariantMap& settings); // Candidate declaration with const QVariantMap&
 
 signals:
-    void debugChanged(const bool debug);
+    void debugChanged(bool debug);
     void logLevelChanged(const QString& level);
     void outputEncodingChanged(const QString& encoding);
     void scriptEncodingChanged(const QString& encoding);
     void scriptLanguageChanged(const QString& language);
-    void cookiesEnabledChanged(const bool enabled);
+    void cookiesEnabledChanged(bool enabled);
     void cookiesFileChanged(const QString& path);
-    void diskCacheEnabledChanged(const bool enabled);
-    void maxDiskCacheSizeChanged(const int size);
+    void diskCacheEnabledChanged(bool enabled);
+    void maxDiskCacheSizeChanged(int size);
     void diskCachePathChanged(const QString& path);
-    void ignoreSslErrorsChanged(const bool ignore);
+    void ignoreSslErrorsChanged(bool ignore);
     void sslProtocolChanged(const QString& protocol);
     void sslCiphersChanged(const QString& ciphers);
     void sslCertificatesPathChanged(const QString& path);
     void sslClientCertificateFileChanged(const QString& path);
     void sslClientKeyFileChanged(const QString& path);
     void sslClientKeyPassphraseChanged(const QByteArray& passphrase);
-    void resourceTimeoutChanged(const int timeout);
-    void maxAuthAttemptsChanged(const int attempts);
-    void javascriptEnabledChanged(const bool enabled);
-    void webSecurityEnabledChanged(const bool enabled);
-    void webGLEnabledChanged(const bool enabled);
-    void javascriptCanOpenWindowsChanged(const bool enabled);
-    void javascriptCanCloseWindowsChanged(const bool enabled);
-    void localToRemoteUrlAccessEnabledChanged(const bool enabled);
-    void autoLoadImagesChanged(const bool enabled);
+    void resourceTimeoutChanged(int timeout);
+    void maxAuthAttemptsChanged(int attempts);
+    void javascriptEnabledChanged(bool enabled);
+    void webSecurityEnabledChanged(bool enabled);
+    void webGLEnabledChanged(bool enabled);
+    void javascriptCanOpenWindowsChanged(bool enabled);
+    void javascriptCanCloseWindowsChanged(bool enabled);
+    void localToRemoteUrlAccessEnabledChanged(bool enabled);
+    void autoLoadImagesChanged(bool enabled);
     void localStoragePathChanged(const QString& path);
-    void localStorageQuotaChanged(const int quota);
+    void localStorageQuotaChanged(int quota);
     void offlineStoragePathChanged(const QString& path);
-    void offlineStorageQuotaChanged(const int quota);
-    void printHeaderChanged(const bool enable);
-    void printFooterChanged(const bool enable);
-    void defaultPageSettingsChanged(const QVariantMap settings);
+    void offlineStorageQuotaChanged(int quota);
+    void printHeaderChanged(bool enable);
+    void printFooterChanged(bool enable);
+    void defaultPageSettingsChanged(QVariantMap settings);
 
 private:
     Config(QObject* parent = nullptr); // Private constructor for singleton
