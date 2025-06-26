@@ -39,81 +39,70 @@
 #include "system.h"
 #include "webserver.h"
 #include "qcommandline/qcommandline.h" // For your custom QCommandLine parser
+#include "ienginebackend.h" // For IEngineBackend* in onPageCreated if needed (but now we take WebPage*)
 
 #include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
-#include <QNetworkProxy> // For QNetworkProxy
-#include <QTimer> // For exit() delay, if needed for graceful shutdown
-#include <QDateTime> // For timing in main, if needed
+#include <QNetworkProxy>
+#include <QTimer>
+#include <QDateTime>
 
-// Static global instance (if Phantom is a singleton, otherwise not needed)
-// Phantom is usually not a singleton, but rather instantiated once in main.
-// So, removing this if it was there and not truly a singleton.
+// Extern declaration for flags array from config.cpp
+extern const struct QCommandLineConfigEntry flags[];
+
 
 Phantom::Phantom(QCoreApplication* app)
-    : QObject(app) // Phantom is the top-level QObject, parented by QCoreApplication
+    : QObject(app)
     , m_app(app)
-    , m_page(nullptr) // Will be created in init or createWebPage
-    , m_config(Config::instance()) // Get singleton Config instance
-    , m_terminal(Terminal::instance()) // Get singleton Terminal instance
-    , m_cookieJar(new CookieJar(this)) // Global CookieJar
+    , m_page(nullptr)
+    , m_config(Config::instance())
+    , m_terminal(Terminal::instance())
+    , m_cookieJar(new CookieJar(this))
     , m_repl(nullptr)
     , m_fs(nullptr)
     , m_childProcess(nullptr)
     , m_system(nullptr)
     , m_webserver(nullptr)
-    , m_cmdLineParser(new QCommandLine(this)) // Instantiate your custom parser
-    , m_remoteDebugPort(-1) // Default debug port
+    , m_cmdLineParser(new QCommandLine(this))
+    , m_remoteDebugPort(-1)
     , m_printStackTrace(false)
     , m_isInteractive(false)
     , m_helpRequested(false)
-    , m_versionRequested(false) {
-    // Connect to application's aboutToQuit for cleanup
-    connect(m_app, &QCoreApplication::aboutToQuit, this, &Phantom::onExit);
+    , m_versionRequested(false)
+{
+    // Connect QCoreApplication::aboutToQuit signal to Phantom::onExit slot
+    connect(m_app, &QCoreApplication::aboutToQuit, this, &Phantom::onExit); // FIXED: No arguments for onExit
 
-    // Initial setup for the global cookie jar
-    m_cookieJar->setParent(this); // Make Phantom the parent
-    // The default WebPage will pick this up when created.
+    m_cookieJar->setParent(this);
 }
 
-Phantom::~Phantom() {
-    // Clean up dynamically allocated objects that are not parented
-    // (QObjects parented by 'this' will be deleted automatically)
+Phantom::~Phantom()
+{
     if (m_repl) {
         delete m_repl;
         m_repl = nullptr;
     }
-    // Filesystem, ChildProcess, System, WebServer are usually not newed/deleted by Phantom
-    // unless explicitly created/managed. If they are QObject singletons or similar, let them be.
+    // Other cleanup (fs, childProcess, system, webserver) are usually parented or singletons, not deleted here.
 }
 
-bool Phantom::init(int argc, char** argv) {
-    // 1. Parse command line arguments using your custom QCommandLine
+bool Phantom::init(int argc, char** argv)
+{
     QStringList appArgs;
     for (int i = 0; i < argc; ++i) {
         appArgs << QString::fromLocal8Bit(argv[i]);
     }
-    m_appArgs = appArgs; // Store application arguments
+    m_appArgs = appArgs;
 
-    // Pass the global flags array (from config.cpp) to your custom QCommandLine parser
-    // Ensure the 'flags' array is visible or passed correctly.
-    // If 'flags' is defined as `extern const struct QCommandLineConfigEntry flags[];` in a common header
-    // and defined in config.cpp, then it's accessible.
-    // Or, if it's a member of Config, you'd do m_config->getCommandLineFlags().
-    // Assuming 'flags' is globally accessible, or QCommandLine handles it:
-    m_cmdLineParser->setConfig(flags); // Assuming 'flags' is visible here
+    m_cmdLineParser->setConfig(flags); // Use the globally accessible flags array
 
     m_cmdLineParser->setArguments(m_appArgs);
 
-    // Explicitly enable help/version entries (if not handled by setConfig via flags)
     m_cmdLineParser->enableHelp(true);
     m_cmdLineParser->enableVersion(true);
 
-    // Connect signals from the parser to Phantom's slots for handling
-    connect(m_cmdLineParser, &QCommandLine::optionFound, this, [this](const QString& name, const QVariant& value) {
-        // Handle options found by the parser
+    connect(m_cmdLineParser, &QCommandLine::optionFound, this, [this](const QString& name, const QVariant& value){
         if (name == "debug") {
             m_config->setDebug(value.toBool());
         } else if (name == "console-level") {
@@ -177,13 +166,11 @@ bool Phantom::init(int argc, char** argv) {
         } else if (name == "print-footer") {
             m_config->setPrintFooter(value.toBool());
         } else if (name == "proxy") {
-            // Proxy parsing is complex, handle it here or in a helper
-            // Expected format: user:password@host:port or host:port
             QString proxyString = value.toString();
             QString proxyUser, proxyPass;
             QString proxyHost;
             qint64 proxyPort = 0;
-            QString proxyType = "http"; // Default
+            QString proxyType = "http";
 
             QRegularExpression re(R"((?:([^:]+):([^@]+)@)?([^:]+)(?::(\d+))?)");
             QRegularExpressionMatch match = re.match(proxyString);
@@ -195,13 +182,8 @@ bool Phantom::init(int argc, char** argv) {
             }
             setProxy(proxyHost, proxyPort, proxyType, proxyUser, proxyPass);
         } else if (name == "proxy-type") {
-            // Already handled by proxy parsing, or if separate option
-            // This would override the type set by the 'proxy' option
-            setProxy(
-                m_config->get("proxy").toString(), 0, value.toString()); // Placeholder, requires actual proxy state
+            setProxy(m_page->proxy().hostName(), m_page->proxy().port(), value.toString()); // Pass current host/port, update type
         } else if (name == "proxy-auth") {
-            // Already handled by proxy parsing, or if separate option
-            // This would set credentials for an already configured proxy
             QString authString = value.toString();
             QString user, pass;
             if (authString.contains(':')) {
@@ -216,7 +198,7 @@ bool Phantom::init(int argc, char** argv) {
         }
     });
 
-    connect(m_cmdLineParser, &QCommandLine::switchFound, this, [this](const QString& name) {
+    connect(m_cmdLineParser, &QCommandLine::switchFound, this, [this](const QString& name){
         if (name == "help") {
             m_helpRequested = true;
         } else if (name == "version") {
@@ -224,69 +206,55 @@ bool Phantom::init(int argc, char** argv) {
         }
     });
 
-    connect(m_cmdLineParser, &QCommandLine::paramFound, this, [this](const QString& name, const QVariant& value) {
-        if (name == "script") { // This should be the first positional argument
+    connect(m_cmdLineParser, &QCommandLine::paramFound, this, [this](const QString& name, const QVariant& value){
+        if (name == "script") {
             m_scriptPath = value.toString();
-        } else if (name == "args") { // These are subsequent positional arguments
+        } else if (name == "args") {
             m_scriptArgs.append(value.toString());
         }
     });
 
-    // Handle parse errors from QCommandLine
-    connect(m_cmdLineParser, &QCommandLine::parseError, this, [this](const QString& error) {
+    connect(m_cmdLineParser, &QCommandLine::parseError, this, [this](const QString& error){
         m_terminal->cerr("Command line parse error: " + error);
-        m_helpRequested = true; // Show help on parse error
+        m_helpRequested = true;
     });
 
     bool parseOk = m_cmdLineParser->parse();
     if (!parseOk) {
-        // If parsing failed, and help wasn't explicitly requested, then there's a problem.
         m_terminal->cerr("Failed to parse command line arguments. See --help for usage.");
-        m_helpRequested = true; // Force help display
+        m_helpRequested = true;
         return false;
     }
 
-    // After parsing, process any config file specified by --config
-    QString configFilePath = m_config->get("config").toString(); // Retrieve 'config' option from Config
+    QString configFilePath = m_config->get("config").toString();
     if (!configFilePath.isEmpty()) {
         m_config->loadJsonFile(configFilePath);
     }
 
-    // Set interactive mode if no script is provided
     m_isInteractive = m_scriptPath.isEmpty();
 
-    // Create the default WebPage (main page)
-    m_page = new WebPage(this); // Parent WebPage to Phantom
-    m_page->setCookieJar(m_cookieJar); // Set global cookie jar
-    // Connect WebPage signals to Phantom slots
+    m_page = new WebPage(this);
+    m_page->setCookieJar(m_cookieJar);
     connect(m_page, &WebPage::initialized, this, &Phantom::onInitialized);
-    connect(m_page, &WebPage::rawPageCreated, this, &Phantom::onPageCreated);
-    connect(m_page, &WebPage::closing, this, &Phantom::onPageCreated); // This will emit after page has been created
-    // ... other signals from WebPage to handle globally ...
+    connect(m_page, &WebPage::rawPageCreated, this, &Phantom::onPageCreated); // FIXED: Argument type matches
 
-    // Apply default settings to the page initially
     m_page->applySettings(m_config->defaultPageSettings());
 
     return true;
 }
 
-int Phantom::executeScript(const QString& scriptPath, const QStringList& scriptArgs) {
+int Phantom::executeScript(const QString& scriptPath, const QStringList& scriptArgs)
+{
     qDebug() << "Executing script:" << scriptPath << "with args:" << scriptArgs;
 
-    // Check if script exists
     if (!QFile::exists(scriptPath)) {
         m_terminal->cerr("Script file not found: " + scriptPath);
         return 1;
     }
 
-    // Set script-specific arguments (used by system.args and page.args)
     m_scriptPath = scriptPath;
     m_scriptArgs = scriptArgs;
 
-    // Simulate script execution by evaluating the script content
-    // This is a placeholder. In a real scenario, you would pass the script content
-    // to the JS engine (Playwright backend) for execution.
-    // Playwright backend would need a way to run a full script environment.
     QString scriptContent;
     QFile scriptFile(scriptPath);
     if (scriptFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -297,170 +265,226 @@ int Phantom::executeScript(const QString& scriptPath, const QStringList& scriptA
         return 1;
     }
 
-    // The bootstrap.js (or similar) would usually handle loading the script
-    // and setting up the global scope (phantom, WebPage etc.).
-    // For now, we'll just evaluate the content directly.
     m_page->evaluateJavaScript(scriptContent);
 
-    // In a real PhantomJS, the script execution would block until page.onLoadFinished or phantom.exit() is called.
-    // For Playwright, the JS process runs asynchronously.
-    // We need to keep the QCoreApplication event loop running until explicit exit.
-    // This is typically done by running app.exec() in main.
-    // If you return from executeScript, main() will continue and app.exec() will be called.
-    // For headless execution, you usually wait for an explicit `phantom.exit()` call from JS.
-
-    return 0; // Success (application will exit later via phantom.exit())
+    return 0;
 }
 
-void Phantom::startInteractive() {
+void Phantom::startInteractive()
+{
     if (m_repl) {
         delete m_repl;
     }
-    m_repl = new Repl(this); // Repl is parented by Phantom
-    m_repl->setWebPage(m_page); // Give REPL access to the current page
-    m_repl->start(); // Start the REPL loop (this is typically blocking)
+    m_repl = new Repl(this);
+    m_repl->setWebPage(m_page);
+    m_repl->start();
 }
 
-// --- Properties and their Getters/Setters ---
+QString Phantom::version() const
+{
+    return QCoreApplication::applicationVersion();
+}
 
-QString Phantom::version() const { return QCoreApplication::applicationVersion(); }
-
-QString Phantom::libraryPath() const {
-    // Return the directory where the PhantomJS executable resides
+QString Phantom::libraryPath() const
+{
     return QCoreApplication::applicationDirPath();
 }
 
-QString Phantom::scriptName() const {
+QString Phantom::scriptName() const
+{
     QFileInfo info(m_scriptPath);
     return info.fileName();
 }
 
-QStringList Phantom::args() const {
-    return m_scriptArgs; // Arguments passed *to the script*
+QStringList Phantom::args() const
+{
+    return m_scriptArgs;
 }
 
-QStringList Phantom::casperPaths() const { return m_casperPaths; }
+QStringList Phantom::casperPaths() const
+{
+    return m_casperPaths;
+}
 
-void Phantom::setCasperPaths(const QStringList& paths) {
+void Phantom::setCasperPaths(const QStringList& paths)
+{
     if (m_casperPaths != paths) {
         m_casperPaths = paths;
         emit casperPathsChanged(paths);
     }
 }
 
-QStringList Phantom::env() const {
-    // Return environment variables as a list of "KEY=VALUE" strings
+QStringList Phantom::env() const
+{
     return QProcess::systemEnvironment();
 }
 
-QVariantMap Phantom::defaultPageSettings() const { return m_defaultPageSettings; }
+QVariantMap Phantom::defaultPageSettings() const
+{
+    return m_defaultPageSettings;
+}
 
-void Phantom::setDefaultPageSettings(const QVariantMap& settings) {
+void Phantom::setDefaultPageSettings(const QVariantMap& settings)
+{
     if (m_defaultPageSettings != settings) {
         m_defaultPageSettings = settings;
         emit defaultPageSettingsChanged(settings);
     }
 }
 
-bool Phantom::cookiesEnabled() const { return m_config->cookiesEnabled(); }
-
-void Phantom::setCookiesEnabled(bool enabled) { m_config->setCookiesEnabled(enabled); }
-
-QString Phantom::cookiesFile() const { return m_config->cookiesFile(); }
-
-void Phantom::setCookiesFile(const QString& path) { m_config->setCookiesFile(path); }
-
-int Phantom::remoteDebugPort() const {
-    return m_remoteDebugPort; // Return the member variable
+bool Phantom::cookiesEnabled() const
+{
+    return m_config->cookiesEnabled();
 }
 
-void Phantom::setRemoteDebugPort(int port) {
+void Phantom::setCookiesEnabled(bool enabled)
+{
+    m_config->setCookiesEnabled(enabled);
+}
+
+QString Phantom::cookiesFile() const
+{
+    return m_config->cookiesFile();
+}
+
+void Phantom::setCookiesFile(const QString& path)
+{
+    m_config->setCookiesFile(path);
+}
+
+int Phantom::remoteDebugPort() const
+{
+    return m_remoteDebugPort;
+}
+
+void Phantom::setRemoteDebugPort(int port)
+{
     if (m_remoteDebugPort != port) {
         m_remoteDebugPort = port;
         emit remoteDebugPortChanged(port);
-        // You might want to trigger the inspector in the backend here
-        // if the port changes after initialization.
-        if (m_page && m_page->engineBackend()) { // Ensure backend is available
+        if (m_page && m_page->engineBackend()) { // This access is now public via getter
             m_page->showInspector(m_remoteDebugPort);
         }
     }
 }
 
-bool Phantom::printStackTrace() const { return m_printStackTrace; }
+bool Phantom::printStackTrace() const
+{
+    return m_printStackTrace;
+}
 
-void Phantom::setPrintStackTrace(bool enable) {
+void Phantom::setPrintStackTrace(bool enable)
+{
     if (m_printStackTrace != enable) {
         m_printStackTrace = enable;
         emit printStackTraceChanged(enable);
-        // Maybe also update terminal's debug/error verbosity based on this.
     }
 }
 
-QString Phantom::outputEncoding() const { return m_config->outputEncoding(); }
+QString Phantom::outputEncoding() const
+{
+    return m_config->outputEncoding();
+}
 
-void Phantom::setOutputEncoding(const QString& encoding) { m_config->setOutputEncoding(encoding); }
+void Phantom::setOutputEncoding(const QString& encoding)
+{
+    m_config->setOutputEncoding(encoding);
+}
 
-QString Phantom::scriptEncoding() const { return m_config->scriptEncoding(); }
+QString Phantom::scriptEncoding() const
+{
+    return m_config->scriptEncoding();
+}
 
-void Phantom::setScriptEncoding(const QString& encoding) { m_config->setScriptEncoding(encoding); }
+void Phantom::setScriptEncoding(const QString& encoding)
+{
+    m_config->setScriptEncoding(encoding);
+}
 
-QString Phantom::scriptLanguage() const { return m_config->scriptLanguage(); }
+QString Phantom::scriptLanguage() const
+{
+    return m_config->scriptLanguage();
+}
 
-void Phantom::setScriptLanguage(const QString& language) { m_config->setScriptLanguage(language); }
+void Phantom::setScriptLanguage(const QString& language)
+{
+    m_config->setScriptLanguage(language);
+}
 
-bool Phantom::isInteractive() const { return m_isInteractive; }
+bool Phantom::isInteractive() const
+{
+    return m_isInteractive;
+}
 
-QString Phantom::scriptPath() const { return m_scriptPath; }
+QString Phantom::scriptPath() const
+{
+    return m_scriptPath;
+}
 
-QStringList Phantom::scriptArgs() const { return m_scriptArgs; }
+QStringList Phantom::scriptArgs() const
+{
+    // Fix for Error 1: scriptArgs is a member of Phantom, not Config.
+    return m_scriptArgs;
+}
 
-bool Phantom::helpRequested() const { return m_helpRequested; }
+bool Phantom::helpRequested() const
+{
+    return m_helpRequested;
+}
 
-bool Phantom::versionRequested() const { return m_versionRequested; }
+bool Phantom::versionRequested() const
+{
+    return m_versionRequested;
+}
 
-void Phantom::showHelp() {
-    m_terminal->cout(m_cmdLineParser->help(true)); // Show help with logo
+void Phantom::showHelp()
+{
+    m_terminal->cout(m_cmdLineParser->help(true));
     exit(0);
 }
 
-void Phantom::showVersion() {
+void Phantom::showVersion()
+{
     m_terminal->cout(m_cmdLineParser->version());
     exit(0);
 }
 
-// --- Q_INVOKABLE Methods ---
-
-QObject* Phantom::createWebPage() {
-    // Create a new WebPage instance, parent it to this Phantom object
-    // Connect its rawPageCreated signal (from engine backend) to a slot in Phantom
+QObject* Phantom::createWebPage()
+{
     WebPage* newPage = new WebPage(this);
-    newPage->setCookieJar(m_cookieJar); // Ensure new pages also use the global cookie jar
-
-    // Apply default page settings to new page
+    newPage->setCookieJar(m_cookieJar);
     newPage->applySettings(m_defaultPageSettings);
-
-    // No need to add to an explicit list here unless Phantom itself needs to manage a list of all pages.
-    // WebPage::handleEnginePageCreated already re-emits rawPageCreated.
-
     return newPage;
 }
 
-void Phantom::exit(int code) {
+void Phantom::exit(int code)
+{
     qDebug() << "Phantom::exit(" << code << ") called. Shutting down application.";
-    // Perform any necessary cleanup before quitting.
-    // QCoreApplication::quit() will stop the event loop.
     QCoreApplication::exit(code);
 }
 
-void Phantom::addCookie(const QVariantMap& cookie) { m_cookieJar->addCookie(cookie); }
+void Phantom::addCookie(const QVariantMap& cookie)
+{
+    m_cookieJar->addCookie(cookie);
+}
 
-void Phantom::deleteCookie(const QString& name) { m_cookieJar->deleteCookie(name); }
+void Phantom::deleteCookie(const QString& name)
+{
+    m_cookieJar->deleteCookie(name);
+}
 
-void Phantom::clearCookies() { m_cookieJar->clearCookies(); }
+void Phantom::clearCookies()
+{
+    m_cookieJar->clearCookies();
+}
 
-QVariantList Phantom::cookies() { return m_cookieJar->allCookiesToMap(); }
+QVariantList Phantom::cookies()
+{
+    return m_cookieJar->allCookiesToMap();
+}
 
-void Phantom::injectJs(const QString& jsFilePath) {
+void Phantom::injectJs(const QString& jsFilePath)
+{
     if (m_page) {
         m_page->injectJs(jsFilePath);
     } else {
@@ -468,94 +492,101 @@ void Phantom::injectJs(const QString& jsFilePath) {
     }
 }
 
-void Phantom::setProxy(
-    const QString& ip, const qint64& port, const QString& proxyType, const QString& user, const QString& password) {
+void Phantom::setProxy(const QString& ip, const qint64& port, const QString& proxyType, const QString& user, const QString& password)
+{
     QNetworkProxy proxy;
     proxy.setHostName(ip);
     proxy.setPort(port);
     if (proxyType.compare("socks5", Qt::CaseInsensitive) == 0) {
         proxy.setType(QNetworkProxy::Socks5Proxy);
-    } else { // Default to HTTP Proxy
+    } else {
         proxy.setType(QNetworkProxy::HttpProxy);
     }
     proxy.setUser(user);
     proxy.setPassword(password);
 
     if (m_page) {
-        m_page->setProxy(proxy); // Use WebPage's setProxy, which takes QNetworkProxy
+        m_page->setProxy(proxy); // FIXED: Pass QNetworkProxy object directly
     } else {
         m_terminal->cerr("Cannot set proxy: No active WebPage.");
     }
 }
 
-void Phantom::setProxyAuth(const QString& user, const QString& password) {
-    // This assumes the proxy host/port are already set.
-    // QNetworkProxy does not have a separate 'setAuth' method,
-    // auth is part of the proxy object itself.
-    // You would typically re-apply the proxy with updated auth.
-    // This method implies changing the auth on the *current* proxy.
+void Phantom::setProxyAuth(const QString& user, const QString& password)
+{
     if (m_page && m_page->proxy().type() != QNetworkProxy::NoProxy) {
-        QNetworkProxy currentProxy = m_page->proxy(); // Get current proxy
+        QNetworkProxy currentProxy = m_page->proxy();
         currentProxy.setUser(user);
         currentProxy.setPassword(password);
-        m_page->setProxy(currentProxy); // Re-apply with updated auth
+        m_page->setProxy(currentProxy);
     } else {
         m_terminal->cerr("Cannot set proxy authentication: No active WebPage or proxy not set.");
     }
 }
 
-void Phantom::debugExit(int code) {
+void Phantom::debugExit(int code)
+{
     qDebug() << "Phantom::debugExit(" << code << ") called.";
     exit(code);
 }
 
-void Phantom::addEventListener(const QString& name, QObject* callback) {
-    // This would typically register a global event listener, e.g., for 'page.onLoadFinished'
-    // but on all new pages created. Complex to implement without a global event bus.
+void Phantom::addEventListener(const QString& name, QObject* callback)
+{
     qWarning() << "Phantom::addEventListener is not fully implemented.";
 }
 
-void Phantom::removeEventListener(const QString& name, QObject* callback) {
+void Phantom::removeEventListener(const QString& name, QObject* callback)
+{
     qWarning() << "Phantom::removeEventListener is not fully implemented.";
 }
 
-QObject* Phantom::evaluate(const QString& func, const QVariantList& args) {
+QObject* Phantom::evaluate(const QString& func, const QVariantList& args)
+{
     if (m_page) {
-        return m_page->evaluateJavaScript(
-            func + "(" + args.join(",") + ");"); // Simple eval, assumes func is a JS string
+        // Simple eval, assumes func is a JS string and args are JS-compatible.
+        // For complex cases, consider a JSON.stringify for args.
+        QString scriptToEval = func;
+        if (!args.isEmpty()) {
+            QStringList argStrings;
+            for (const QVariant& arg : args) {
+                // This is a very basic conversion. Real solution needs more robust variant to JS literal conversion.
+                if (arg.type() == QVariant::String) {
+                    argStrings << QString("'%1'").arg(arg.toString().replace("'", "\\'"));
+                } else {
+                    argStrings << arg.toString();
+                }
+            }
+            scriptToEval += "(" + argStrings.join(", ") + ")";
+        } else {
+            scriptToEval += "()"; // Call as a function even if no args
+        }
+
+        return m_page->evaluateJavaScript(scriptToEval);
     }
     m_terminal->cerr("Cannot evaluate: No active WebPage.");
     return QVariant();
 }
 
-// --- Private Slots ---
-void Phantom::onPageCreated(IEngineBackend* newPageBackend) {
-    // This slot is called by WebPage::handleEnginePageCreated
-    // It indicates that the underlying engine has created a new page (e.g., from window.open)
-    // We need to create a new C++ WebPage wrapper for it.
-    WebPage* newWebPage = new WebPage(this, QUrl(), newPageBackend); // Create new WebPage with existing backend
-    newWebPage->setCookieJar(m_cookieJar); // Set global cookie jar
-    newWebPage->applySettings(m_defaultPageSettings); // Apply default settings
-
-    // Now, emit a signal so JS can get a handle to this new page
-    // (e.g., phantom.onPageCreated or phantom.pages[].onInitialized)
-    // For now, rawPageCreated is emitted by WebPage, this allows Phantom to manage it.
-    // You might want to maintain a list of all pages in Phantom for `phantom.pages` property.
+void Phantom::onPageCreated(WebPage* newPage) // FIXED: Argument type
+{
     qDebug() << "Phantom: A new WebPage was created by the backend.";
-    // No direct signal like phantom.onPageCreated, the JS side would usually listen to page.onInitialized or similar.
-    // However, if there's a phantom.pages array, you'd add it there.
+    if (newPage) {
+        // You might want to add newPage to a list of managed pages here
+        // if Phantom needs to keep track of all pages for `phantom.pages`
+        // newPage->setParent(this); // Already parented by the signal emitting WebPage usually.
+    } else {
+        qWarning() << "Phantom::onPageCreated: Received null newPage.";
+    }
 }
 
-void Phantom::onInitialized() {
+void Phantom::onInitialized()
+{
     qDebug() << "Phantom: Initial WebPage initialized.";
-    if (m_page && m_page->engineBackend()) { // Ensure backend is available
-        // Expose global 'phantom' object to the main page's JavaScript context
+    if (m_page && m_page->engineBackend()) {
         m_page->engineBackend()->exposeQObject("phantom", this);
-        // Expose 'webpage' (the current page) itself
         m_page->engineBackend()->exposeQObject("page", m_page);
 
-        // Expose the global objects (fs, child_process, system, webserver)
-        m_fs = new FileSystem(this); // Parent to Phantom
+        m_fs = new FileSystem(this);
         m_page->engineBackend()->exposeQObject("fs", m_fs);
 
         m_childProcess = new ChildProcess(this);
@@ -567,45 +598,26 @@ void Phantom::onInitialized() {
         m_webserver = new WebServer(this);
         m_page->engineBackend()->exposeQObject("webserver", m_webserver);
 
-        // Expose the 'console' object for direct JS console.log calls to C++ Terminal
-        m_page->engineBackend()->exposeQObject("console", m_terminal); // Expose Terminal as 'console'
+        m_page->engineBackend()->exposeQObject("console", m_terminal);
     } else {
         qWarning() << "Phantom::onInitialized: WebPage or its backend not available.";
     }
 }
 
-void Phantom::onExit(int exitCode) {
-    qDebug() << "Phantom::onExit called with code:" << exitCode;
-    // Perform any last-minute cleanup here.
-    // The QCoreApplication is already quitting.
-    // Objects parented by m_app or this Phantom instance will be deleted.
+void Phantom::onExit() // FIXED: No arguments
+{
+    qDebug() << "Phantom::onExit called.";
 }
 
-void Phantom::onRemoteDebugPortChanged() {
-    // This slot can be used to re-trigger the inspector setup if the port changes dynamically.
+void Phantom::onRemoteDebugPortChanged()
+{
     if (m_page && m_page->engineBackend() && m_remoteDebugPort > 0) {
         m_page->showInspector(m_remoteDebugPort);
     }
 }
 
-// --- Private Helper Methods ---
+void Phantom::parseCommandLine(int argc, char** argv) { Q_UNUSED(argc); Q_UNUSED(argv); /* Integrated into init() */ }
+void Phantom::setupGlobalObjects() { /* Handled in onInitialized() */ }
+void Phantom::cleanupGlobalObjects() { /* Handled by QObject parenting */ }
+void Phantom::exposeGlobalObjectsToJs() { /* Handled in onInitialized() */ }
 
-void Phantom::parseCommandLine(int argc, char** argv) {
-    // This method is now integrated into init()
-    Q_UNUSED(argc);
-    Q_UNUSED(argv);
-}
-
-void Phantom::setupGlobalObjects() {
-    // This is now largely handled in onInitialized()
-}
-
-void Phantom::cleanupGlobalObjects() {
-    // This is largely handled by QObject parenting.
-    // If you had non-QObject resources or unparented QObjects, delete them here.
-}
-
-void Phantom::exposeGlobalObjectsToJs() {
-    // This is now handled in onInitialized() for the main page.
-    // New pages would need to re-expose objects as well.
-}
