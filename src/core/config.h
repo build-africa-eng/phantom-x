@@ -171,7 +171,7 @@ public:
     void setOfflineStorageQuota(int quota);
     void setPrintHeader(bool enable);
     void setPrintFooter(bool enable);
-    void setDefaultPageSettings(QVariantMap settings);
+    void setDefaultPageSettings(const QVariantMap& settings);
 
 signals:
     void debugChanged(bool debug);
