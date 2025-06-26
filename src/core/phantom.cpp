@@ -442,7 +442,7 @@ void Phantom::removeEventListener(const QString& name, QObject* callback) {
     qWarning() << "Phantom::removeEventListener is not fully implemented.";
 }
 
-QObject* Phantom::evaluate(const QString& func, const QVariantList& args) {
+QVariant Phantom::evaluate(const QString& func, const QVariantList& args) {
     if (m_page) {
         // Simple eval, assumes func is a JS string and args are JS-compatible.
         // For complex cases, consider a JSON.stringify for args.
