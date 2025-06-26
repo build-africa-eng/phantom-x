@@ -33,9 +33,9 @@
 
 #include <QObject>
 #include <QString>
-#include <ostream>
+#include <ostream> // Still needed for std::ostream in output method
 
-#include "encoding.h"
+#include "encoding.h" // Keep this for m_encoding
 
 class Terminal : public QObject {
     Q_OBJECT
@@ -49,15 +49,25 @@ public:
     void cout(const QString& string, const bool newline = true) const;
     void cerr(const QString& string, const bool newline = true) const;
 
+    // --- NEW: For debug mode control ---
+    void setDebugMode(bool debug);
+    bool debugMode() const; // New getter for debug state
+    // -----------------------------------
+
 signals:
     void encodingChanged(const QString& encoding);
 
 private:
+    // Private constructor for singleton pattern
+    Terminal();
+
+    // Private helper method for output
     void output(std::ostream& out, const QString& string, const bool newline) const;
 
 private:
-    Terminal();
     Encoding m_encoding;
+    bool m_debugMode; // NEW: Member to store debug state
 };
 
 #endif // TERMINAL_H
+
