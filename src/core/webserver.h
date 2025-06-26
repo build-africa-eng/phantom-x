@@ -173,8 +173,7 @@ public:
     // --- Internal Callback Handlers ---
     QString filePicker(const QString& oldFile);
     bool javaScriptConfirm(const QString& msg);
-    bool javaScriptPrompt(
-        const QString& msg, const QString& defaultValue, QString* result);
+    bool javaScriptPrompt(const QString& msg, const QString& defaultValue, QString* result);
     void javascriptInterrupt();
 
     // NEW: Public getter for m_engineBackend
@@ -284,4 +283,3 @@ private:
 };
 
 #endif // WEBPAGE_H
-
