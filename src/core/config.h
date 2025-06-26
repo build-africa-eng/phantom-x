@@ -1,33 +1,3 @@
-/*
-  This file is part of the PhantomJS project from Ofi Labs.
-
-  Copyright (C) 2011 Ariya Hidayat <ariya.hidayat@gmail.com>
-  Copyright (C) 2011 execjosh, http://execjosh.blogspot.com
-
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * Neither the name of the <organization> nor the
-      names of its contributors may be used to endorse or promote products
-      derived from this software without specific prior written permission.
-
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-  ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
-  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
-
 #ifndef CONFIG_H
 #define CONFIG_H
 
@@ -39,7 +9,8 @@
 
 struct QCommandLineConfigEntry; // Forward declare the struct
 
-class Config : public QObject {
+class Config : public QObject
+{
     Q_OBJECT
 
 public:
@@ -64,44 +35,34 @@ public:
     Q_PROPERTY(bool ignoreSslErrors READ ignoreSslErrors WRITE setIgnoreSslErrors NOTIFY ignoreSslErrorsChanged)
     Q_PROPERTY(QString sslProtocol READ sslProtocol WRITE setSslProtocol NOTIFY sslProtocolChanged)
     Q_PROPERTY(QString sslCiphers READ sslCiphers WRITE setSslCiphers NOTIFY sslCiphersChanged)
-    Q_PROPERTY(QString sslCertificatesPath READ sslCertificatesPath WRITE setSslCertificatesPath NOTIFY
-            sslCertificatesPathChanged)
-    Q_PROPERTY(QString sslClientCertificateFile READ sslClientCertificateFile WRITE setSslClientCertificateFile NOTIFY
-            sslClientCertificateFileChanged)
+    Q_PROPERTY(QString sslCertificatesPath READ sslCertificatesPath WRITE setSslCertificatesPath NOTIFY sslCertificatesPathChanged)
+    Q_PROPERTY(QString sslClientCertificateFile READ sslClientCertificateFile WRITE setSslClientCertificateFile NOTIFY sslClientCertificateFileChanged)
     Q_PROPERTY(QString sslClientKeyFile READ sslClientKeyFile WRITE setSslClientKeyFile NOTIFY sslClientKeyFileChanged)
-    Q_PROPERTY(QByteArray sslClientKeyPassphrase READ sslClientKeyPassphrase WRITE setSslClientKeyPassphrase NOTIFY
-            sslClientKeyPassphraseChanged)
+    Q_PROPERTY(QByteArray sslClientKeyPassphrase READ sslClientKeyPassphrase WRITE setSslClientKeyPassphrase NOTIFY sslClientKeyPassphraseChanged)
     Q_PROPERTY(int resourceTimeout READ resourceTimeout WRITE setResourceTimeout NOTIFY resourceTimeoutChanged)
     Q_PROPERTY(int maxAuthAttempts READ maxAuthAttempts WRITE setMaxAuthAttempts NOTIFY maxAuthAttemptsChanged)
 
     // --- JavaScript / Page Security Settings ---
     Q_PROPERTY(bool javascriptEnabled READ javascriptEnabled WRITE setJavascriptEnabled NOTIFY javascriptEnabledChanged)
-    Q_PROPERTY(
-        bool webSecurityEnabled READ webSecurityEnabled WRITE setWebSecurityEnabled NOTIFY webSecurityEnabledChanged)
+    Q_PROPERTY(bool webSecurityEnabled READ webSecurityEnabled WRITE setWebSecurityEnabled NOTIFY webSecurityEnabledChanged)
     Q_PROPERTY(bool webGLEnabled READ webGLEnabled WRITE setWebGLEnabled NOTIFY webGLEnabledChanged)
-    Q_PROPERTY(bool javascriptCanOpenWindows READ javascriptCanOpenWindows WRITE setJavascriptCanOpenWindows NOTIFY
-            javascriptCanOpenWindowsChanged)
-    Q_PROPERTY(bool javascriptCanCloseWindows READ javascriptCanCloseWindows WRITE setJavascriptCanCloseWindows NOTIFY
-            javascriptCanCloseWindowsChanged)
-    Q_PROPERTY(bool localToRemoteUrlAccessEnabled READ localToRemoteUrlAccessEnabled WRITE
-            setLocalToRemoteUrlAccessEnabled NOTIFY localToRemoteUrlAccessEnabledChanged)
+    Q_PROPERTY(bool javascriptCanOpenWindows READ javascriptCanOpenWindows WRITE setJavascriptCanOpenWindows NOTIFY javascriptCanOpenWindowsChanged)
+    Q_PROPERTY(bool javascriptCanCloseWindows READ javascriptCanCloseWindows WRITE setJavascriptCanCloseWindows NOTIFY javascriptCanCloseWindowsChanged)
+    Q_PROPERTY(bool localToRemoteUrlAccessEnabled READ localToRemoteUrlAccessEnabled WRITE setLocalToRemoteUrlAccessEnabled NOTIFY localToRemoteUrlAccessEnabledChanged)
     Q_PROPERTY(bool autoLoadImages READ autoLoadImages WRITE setAutoLoadImages NOTIFY autoLoadImagesChanged)
 
     // --- Local/Offline Storage Settings ---
     Q_PROPERTY(QString localStoragePath READ localStoragePath WRITE setLocalStoragePath NOTIFY localStoragePathChanged)
     Q_PROPERTY(int localStorageQuota READ localStorageQuota WRITE setLocalStorageQuota NOTIFY localStorageQuotaChanged)
-    Q_PROPERTY(
-        QString offlineStoragePath READ offlineStoragePath WRITE setOfflineStoragePath NOTIFY offlineStoragePathChanged)
-    Q_PROPERTY(
-        int offlineStorageQuota READ offlineStorageQuota WRITE setOfflineStorageQuota NOTIFY offlineStorageQuotaChanged)
+    Q_PROPERTY(QString offlineStoragePath READ offlineStoragePath WRITE setOfflineStoragePath NOTIFY offlineStoragePathChanged)
+    Q_PROPERTY(int offlineStorageQuota READ offlineStorageQuota WRITE setOfflineStorageQuota NOTIFY offlineStorageQuotaChanged)
 
     // --- Printing Settings ---
     Q_PROPERTY(bool printHeader READ printHeader WRITE setPrintHeader NOTIFY printHeaderChanged)
     Q_PROPERTY(bool printFooter READ printFooter WRITE setPrintFooter NOTIFY printFooterChanged)
 
     // --- Page Settings (as a map, directly used by WebPage) ---
-    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY
-            defaultPageSettingsChanged)
+    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY defaultPageSettingsChanged)
 
     // Getters
     bool debug() const;
@@ -171,7 +132,7 @@ public:
     void setOfflineStorageQuota(int quota);
     void setPrintHeader(bool enable);
     void setPrintFooter(bool enable);
-    void setDefaultPageSettings(const QVariantMap& settings); // Candidate declaration with const QVariantMap&
+    void setDefaultPageSettings(const QVariantMap& settings); // Correct signature (const reference)
 
 signals:
     void debugChanged(bool debug);
