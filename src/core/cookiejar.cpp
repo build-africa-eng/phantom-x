@@ -29,8 +29,8 @@
 */
 
 #include "cookiejar.h"
-#include "config.h"
-#include "phantom.h"
+#include "core/config.h"
+#include "core/phantom.h"
 
 #include <QDataStream>
 #include <QDateTime>
