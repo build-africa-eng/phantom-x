@@ -50,11 +50,10 @@ class ChildProcess;
 class System;
 class WebServer;
 class QCommandLine;
+class IEngineBackend; // Forward declare IEngineBackend
 
-// NEW: Forward declare IEngineBackend
-class IEngineBackend;
-
-class Phantom : public QObject {
+class Phantom : public QObject
+{
     Q_OBJECT
 
 public:
@@ -62,80 +61,76 @@ public:
     ~Phantom();
 
     // --- Core Lifecycle ---
-    bool init(int argc, char** argv); // Handles command-line parsing and initial setup
+    bool init(int argc, char** argv);
     int executeScript(const QString& scriptPath, const QStringList& scriptArgs);
-    void startInteractive(); // For REPL mode
+    void startInteractive();
 
     // --- Properties exposed to JavaScript (Q_PROPERTY) ---
-    Q_PROPERTY(QString version READ version CONSTANT) // This should be dynamic now
+    Q_PROPERTY(QString version READ version CONSTANT)
     Q_PROPERTY(QString libraryPath READ libraryPath CONSTANT)
     Q_PROPERTY(QString scriptName READ scriptName CONSTANT)
-    Q_PROPERTY(QStringList args READ args CONSTANT) // Command-line arguments to the script
+    Q_PROPERTY(QStringList args READ args CONSTANT)
     Q_PROPERTY(QStringList casperPaths READ casperPaths WRITE setCasperPaths NOTIFY casperPathsChanged)
-    Q_PROPERTY(QStringList env READ env CONSTANT) // Environment variables
-    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY
-            defaultPageSettingsChanged)
+    Q_PROPERTY(QStringList env READ env CONSTANT)
+    Q_PROPERTY(QVariantMap defaultPageSettings READ defaultPageSettings WRITE setDefaultPageSettings NOTIFY defaultPageSettingsChanged)
     Q_PROPERTY(bool cookiesEnabled READ cookiesEnabled WRITE setCookiesEnabled NOTIFY cookiesEnabledChanged)
     Q_PROPERTY(QString cookiesFile READ cookiesFile WRITE setCookiesFile NOTIFY cookiesFileChanged)
-    Q_PROPERTY(
-        int remoteDebugPort READ remoteDebugPort WRITE setRemoteDebugPort NOTIFY remoteDebugPortChanged) // NEW PROPERTY
+    Q_PROPERTY(int remoteDebugPort READ remoteDebugPort WRITE setRemoteDebugPort NOTIFY remoteDebugPortChanged)
     Q_PROPERTY(bool printStackTrace READ printStackTrace WRITE setPrintStackTrace NOTIFY printStackTraceChanged)
     Q_PROPERTY(QString outputEncoding READ outputEncoding WRITE setOutputEncoding NOTIFY outputEncodingChanged)
     Q_PROPERTY(QString scriptEncoding READ scriptEncoding WRITE setScriptEncoding NOTIFY scriptEncodingChanged)
-    Q_PROPERTY(QString scriptLanguage READ scriptLanguage WRITE
-            setScriptEncoding) // Typo: Should be setScriptLanguage, not setScriptEncoding
+    Q_PROPERTY(QString scriptLanguage READ scriptLanguage WRITE setScriptLanguage NOTIFY scriptLanguageChanged) // Fixed setter name
 
     // --- Methods exposed to JavaScript (Q_INVOKABLE) ---
-    Q_INVOKABLE QObject* createWebPage(); // Creates a new WebPage instance
-    Q_INVOKABLE void exit(int code = 0); // Exits the application
-    Q_INVOKABLE void addCookie(const QVariantMap& cookie); // Adds a cookie globally
-    Q_INVOKABLE void deleteCookie(const QString& name); // Deletes a cookie globally
-    Q_INVOKABLE void clearCookies(); // Clears all cookies globally
-    Q_INVOKABLE QVariantList cookies(); // Gets all cookies globally
-    Q_INVOKABLE void injectJs(const QString& jsFilePath); // Injects JS globally
-    Q_INVOKABLE void setProxy(const QString& ip, const qint64& port = 0, const QString& proxyType = QString(),
-        const QString& user = QString(), const QString& password = QString()); // Set proxy globally
-    Q_INVOKABLE void setProxyAuth(const QString& user, const QString& password); // Set proxy authentication
-    Q_INVOKABLE void debugExit(int code = 0); // For debugging purposes, exits
-    Q_INVOKABLE void addEventListener(const QString& name, QObject* callback); // For adding global event listeners
-    Q_INVOKABLE void removeEventListener(const QString& name, QObject* callback); // For removing global event listeners
-    Q_INVOKABLE QObject* evaluate(const QString& func, const QVariantList& args); // Global evaluate in the current page
+    Q_INVOKABLE QObject* createWebPage();
+    Q_INVOKABLE void exit(int code = 0);
+    Q_INVOKABLE void addCookie(const QVariantMap& cookie);
+    Q_INVOKABLE void deleteCookie(const QString& name);
+    Q_INVOKABLE void clearCookies();
+    Q_INVOKABLE QVariantList cookies();
+    Q_INVOKABLE void injectJs(const QString& jsFilePath);
+    Q_INVOKABLE void setProxy(const QString& ip, const qint64& port = 0, const QString& proxyType = QString(), const QString& user = QString(), const QString& password = QString());
+    Q_INVOKABLE void setProxyAuth(const QString& user, const QString& password);
+    Q_INVOKABLE void debugExit(int code = 0);
+    Q_INVOKABLE void addEventListener(const QString& name, QObject* callback);
+    Q_INVOKABLE void removeEventListener(const QString& name, QObject* callback);
+    Q_INVOKABLE QObject* evaluate(const QString& func, const QVariantList& args);
 
     // --- Getters for Q_PROPERTY ---
     QString version() const;
     QString libraryPath() const;
     QString scriptName() const;
-    QStringList args() const; // Script arguments passed to Phantom
+    QStringList args() const;
     QStringList casperPaths() const;
     QStringList env() const;
     QVariantMap defaultPageSettings() const;
     bool cookiesEnabled() const;
     QString cookiesFile() const;
-    int remoteDebugPort() const; // NEW GETTER
+    int remoteDebugPort() const;
     bool printStackTrace() const;
     QString outputEncoding() const;
     QString scriptEncoding() const;
-    QString scriptLanguage() const; // Fixed getter name
+    QString scriptLanguage() const;
 
     // --- Setters for Q_PROPERTY ---
     void setCasperPaths(const QStringList& paths);
     void setDefaultPageSettings(const QVariantMap& settings);
     void setCookiesEnabled(bool enabled);
     void setCookiesFile(const QString& path);
-    void setRemoteDebugPort(int port); // NEW SETTER
+    void setRemoteDebugPort(int port);
     void setPrintStackTrace(bool enable);
     void setOutputEncoding(const QString& encoding);
     void setScriptEncoding(const QString& encoding);
     void setScriptLanguage(const QString& language);
 
     // --- Internal Getters ---
-    bool isInteractive() const; // Is PhantomJS running in interactive mode?
-    QString scriptPath() const; // The full path to the script being run
-    QStringList scriptArgs() const; // Arguments *to the script* (different from application arguments)
-    bool helpRequested() const; // Indicates if --help was requested
-    bool versionRequested() const; // Indicates if --version was requested
-    void showHelp(); // Prints help and exits
-    void showVersion(); // Prints version and exits
+    bool isInteractive() const;
+    QString scriptPath() const;
+    QStringList scriptArgs() const;
+    bool helpRequested() const;
+    bool versionRequested() const;
+    void showHelp();
+    void showVersion();
 
 signals:
     // Global signals
@@ -144,51 +139,51 @@ signals:
     void defaultPageSettingsChanged(const QVariantMap& settings);
     void cookiesEnabledChanged(bool enabled);
     void cookiesFileChanged(const QString& path);
-    void remoteDebugPortChanged(int port); // NEW SIGNAL
+    void remoteDebugPortChanged(int port);
     void printStackTraceChanged(bool enable);
     void outputEncodingChanged(const QString& encoding);
     void scriptEncodingChanged(const QString& encoding);
     void scriptLanguageChanged(const QString& language);
 
 private slots:
-    void onPageCreated(IEngineBackend* newPageBackend); // Handles new pages from backend
-    void onInitialized(); // Called when the initial page's JS context is ready
-    void onExit(int exitCode); // Handles application exit
-    void onRemoteDebugPortChanged(); // For internal use after setting port
+    void onPageCreated(WebPage* newPage); // MODIFIED: Argument type changed
+    void onInitialized();
+    void onExit(); // MODIFIED: No arguments
+    void onRemoteDebugPortChanged();
 
 private:
     QCoreApplication* m_app;
-    QPointer<WebPage> m_page; // The default WebPage instance
-    Config* m_config; // Singleton instance of Config
-    Terminal* m_terminal; // Singleton instance of Terminal
-    CookieJar* m_cookieJar; // Global cookie jar
+    QPointer<WebPage> m_page;
+    Config* m_config;
+    Terminal* m_terminal;
+    CookieJar* m_cookieJar;
 
-    Repl* m_repl; // For interactive mode
-    FileSystem* m_fs; // fs module
-    ChildProcess* m_childProcess; // child_process module
-    System* m_system; // system module
-    WebServer* m_webserver; // webserver module
+    Repl* m_repl;
+    FileSystem* m_fs;
+    ChildProcess* m_childProcess;
+    System* m_system;
+    WebServer* m_webserver;
 
-    QCommandLine* m_cmdLineParser; // Our custom command line parser instance
+    QCommandLine* m_cmdLineParser;
 
-    QString m_scriptPath; // Full path to the script being executed
-    QStringList m_scriptArgs; // Arguments passed *to the script*
-    QStringList m_appArgs; // Arguments passed *to the phantomjs executable*
+    QString m_scriptPath;
+    QStringList m_scriptArgs;
+    QStringList m_appArgs;
 
     QStringList m_casperPaths;
     QVariantMap m_defaultPageSettings;
-    int m_remoteDebugPort; // NEW MEMBER
+    int m_remoteDebugPort;
     bool m_printStackTrace;
 
-    bool m_isInteractive; // Flag for interactive mode
+    bool m_isInteractive;
     bool m_helpRequested;
     bool m_versionRequested;
 
-    // Private helper methods
     void setupGlobalObjects();
     void cleanupGlobalObjects();
-    void parseCommandLine(int argc, char** argv);
+    void parseCommandLine(int argc, char** argv); // This method is now integrated into init()
     void exposeGlobalObjectsToJs();
 };
 
 #endif // PHANTOM_H
+
