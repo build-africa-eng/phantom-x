@@ -39,6 +39,7 @@
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
+#include "webpage.moc"
 #include <QPointer> // For safe pointers to other QObjects like WebPage itself
 #include <QNetworkRequest> // Needed for openUrl, load function
 #include <QNetworkAccessManager> // Needed for QNetworkAccessManager::Operation
