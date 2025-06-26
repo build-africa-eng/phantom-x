@@ -70,4 +70,3 @@ private:
 };
 
 #endif // TERMINAL_H
-

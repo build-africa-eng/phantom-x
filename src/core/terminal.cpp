@@ -32,7 +32,7 @@
 
 #include <QCoreApplication>
 #include <QTextCodec> // Needed for QTextCodec in setEncoding
-#include <QDebug>     // Needed for qDebug()
+#include <QDebug> // Needed for qDebug()
 
 #include <iostream> // Still needed for std::cout, std::cerr
 
@@ -102,9 +102,7 @@ void Terminal::setDebugMode(bool debug) {
     }
 }
 
-bool Terminal::debugMode() const {
-    return m_debugMode;
-}
+bool Terminal::debugMode() const { return m_debugMode; }
 // -----------------------------------------------------------------
 
 // private
