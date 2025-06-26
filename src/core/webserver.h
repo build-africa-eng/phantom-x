@@ -39,8 +39,7 @@
 class WebPage; // <-- NEW: Forward declare WebPage instead of including its header
 class WebServerPrivate; // Assuming a pimpl pattern
 
-class WebServer : public QObject
-{
+class WebServer : public QObject {
     Q_OBJECT
 
 public:
@@ -78,4 +77,3 @@ private:
 };
 
 #endif // WEBSERVER_H
-
