@@ -15,7 +15,8 @@
 
 class CookieJar; // Forward declare
 
-class PlaywrightEngineBackend : public IEngineBackend {
+class PlaywrightEngineBackend : public IEngineBackend
+{
     Q_OBJECT
 
 public:
@@ -29,8 +30,7 @@ public:
     QString toPlainText() const override;
     QString windowName() const override;
 
-    void load(
-        const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body) override;
+    void load(const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body) override;
     void setHtml(const QString& html, const QUrl& baseUrl) override;
     void reload() override;
     void stop() override;
@@ -52,8 +52,7 @@ public:
     void setZoomFactor(qreal zoom) override;
 
     QVariant evaluateJavaScript(const QString& code) override;
-    bool injectJavaScriptFile(
-        const QString& jsFilePath, const QString& encoding, const QString& libraryPath, bool forEachFrame) override;
+    bool injectJavaScriptFile(const QString& jsFilePath, const QString& encoding, const QString& libraryPath, bool forEachFrame) override;
     void exposeQObject(const QString& name, QObject* object) override;
     void appendScriptElement(const QString& scriptUrl) override;
 
@@ -89,7 +88,7 @@ public:
     QVariantList cookies() const override;
     bool addCookie(const QVariantMap& cookie) override;
     bool deleteCookie(const QString& cookieName) override;
-    void clearCookies() override;
+    void clearCookies() override; // Updated to void
 
     int framesCount() const override;
     QStringList framesName() const override;
@@ -97,18 +96,18 @@ public:
     bool switchToFrame(int framePosition) override;
     void switchToMainFrame() override;
     bool switchToParentFrame() override;
-    bool switchToFocusedFrame() override; // Corrected to return bool
+    bool switchToFocusedFrame() override; // Now matches base class
     QString frameName() const override;
     QString focusedFrameName() const override;
 
-    void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton,
-        const QVariant& modifierArg) override;
+    void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton, const QVariant& modifierArg) override;
     void uploadFile(const QString& selector, const QStringList& fileNames) override;
 
     int showInspector(int port) override;
 
-    QVariant sendSyncCommand(const QString& command, const QVariantMap& params = QVariantMap()) override;
-    void sendAsyncCommand(const QString& command, const QVariantMap& params = QVariantMap()) override;
+    // These are *internal* methods specific to PlaywrightEngineBackend, not part of IEngineBackend
+    QVariant sendSyncCommand(const QString& command, const QVariantMap& params = QVariantMap());
+    void sendAsyncCommand(const QString& command, const QVariantMap& params = QVariantMap());
 
 private slots:
     void handleReadyReadStandardOutput();
@@ -160,16 +159,14 @@ private:
     void emitUrlChanged(const QUrl& url);
     void emitTitleChanged(const QString& title);
     void emitContentsChanged();
-    void emitNavigationRequested(
-        const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
+    void emitNavigationRequested(const QUrl& url, const QString& navigationType, bool isMainFrame, bool navigationLocked);
     void emitPageCreated(IEngineBackend* newPageBackend);
     void emitWindowCloseRequested();
     void emitJavaScriptAlertSent(const QString& msg);
     void emitJavaScriptConsoleMessageSent(const QString& message);
     void emitJavaScriptErrorSent(const QString& message, int lineNumber, const QString& sourceID, const QString& stack);
-    void emitJavaScriptConfirmRequested(const QString& message, bool* result);
-    void emitJavaScriptPromptRequested(
-        const QString& message, const QString& defaultValue, QString* result, bool* accepted);
+    void emitJavaScriptConfirmRequested(const QString& message, bool* result); // result is an out-parameter
+    void emitJavaScriptPromptRequested(const QString& message, const QString& defaultValue, QString* result, bool* accepted); // result & accepted are out-parameters
     void emitJavascriptInterruptRequested(bool* interrupt);
     void emitFilePickerRequested(const QString& oldFile, QString* chosenFile, bool* handled);
     void emitResourceRequested(const QVariantMap& requestData, QObject* request);
