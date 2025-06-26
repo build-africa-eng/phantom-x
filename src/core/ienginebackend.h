@@ -16,12 +16,12 @@
 
 class CookieJar; // Forward declare CookieJar
 
-class IEngineBackend : public QObject
-{
+class IEngineBackend : public QObject {
     Q_OBJECT
 
 public:
-    explicit IEngineBackend(QObject* parent = nullptr) : QObject(parent) {}
+    explicit IEngineBackend(QObject* parent = nullptr)
+        : QObject(parent) { }
     virtual ~IEngineBackend() = default;
 
     // --- Core Page Properties ---
@@ -32,7 +32,9 @@ public:
     virtual QString windowName() const = 0;
 
     // --- Navigation ---
-    virtual void load(const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body) = 0;
+    virtual void load(
+        const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body)
+        = 0;
     virtual void setHtml(const QString& html, const QUrl& baseUrl) = 0;
     virtual void reload() = 0;
     virtual void stop() = 0;
@@ -56,7 +58,9 @@ public:
 
     // --- JavaScript Execution ---
     virtual QVariant evaluateJavaScript(const QString& code) = 0;
-    virtual bool injectJavaScriptFile(const QString& jsFilePath, const QString& encoding, const QString& libraryPath, bool forEachFrame) = 0;
+    virtual bool injectJavaScriptFile(
+        const QString& jsFilePath, const QString& encoding, const QString& libraryPath, bool forEachFrame)
+        = 0;
     virtual void exposeQObject(const QString& name, QObject* object) = 0;
     virtual void appendScriptElement(const QString& scriptUrl) = 0;
 
@@ -111,7 +115,9 @@ public:
     virtual QString focusedFrameName() const = 0;
 
     // --- Event Simulation ---
-    virtual void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton, const QVariant& modifierArg) = 0;
+    virtual void sendEvent(const QString& type, const QVariant& arg1, const QVariant& arg2, const QString& mouseButton,
+        const QVariant& modifierArg)
+        = 0;
     virtual void uploadFile(const QString& selector, const QStringList& fileNames) = 0;
 
     // --- DevTools ---
@@ -134,12 +140,14 @@ signals:
     void javaScriptConsoleMessageSent(const QString& message);
     void javaScriptErrorSent(const QString& message, int lineNumber, const QString& sourceID, const QString& stack);
     void javaScriptConfirmRequested(const QString& message, bool* result); // result is an out-parameter
-    void javaScriptPromptRequested(const QString& message, const QString& defaultValue, QString* result, bool* accepted); // result & accepted are out-parameters
+    void javaScriptPromptRequested(const QString& message, const QString& defaultValue, QString* result,
+        bool* accepted); // result & accepted are out-parameters
     void javascriptInterruptRequested(bool* interrupt);
     void filePickerRequested(const QString& oldFile, QString* chosenFile, bool* handled);
 
     // Resource tracking
-    void resourceRequested(const QVariantMap& requestData, QObject* request); // request is a QNetworkRequest-like object
+    void resourceRequested(
+        const QVariantMap& requestData, QObject* request); // request is a QNetworkRequest-like object
     void resourceReceived(const QVariantMap& responseData);
     void resourceError(const QVariantMap& errorData);
     void resourceTimeout(const QVariantMap& errorData);
@@ -149,7 +157,6 @@ signals:
 
     // Backend Initialization
     void initialized(); // Emitted when the backend is ready to accept commands
-
 };
 
 #endif // IENGINEBACKEND_H
