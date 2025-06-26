@@ -33,7 +33,7 @@
 #include "config.h"
 #include "consts.h" // For PAGE_SETTINGS constants
 #include "terminal.h" // For setDebugMode etc.
-#include "utils.h"    // For readResourceFileUtf8 function
+#include "utils.h" // For readResourceFileUtf8 function
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -44,11 +44,10 @@
 #include <QStandardPaths> // For default paths
 #include <QProcess> // For checking if Node.js is available
 #include <QMetaProperty> // NEW: For QMetaProperty definition
-#include <QMetaObject>   // NEW: For QMetaObject and related meta-information
+#include <QMetaObject> // NEW: For QMetaObject and related meta-information
 
 // Include QCommandLine here, as this is where the `flags` array is defined
 #include "qcommandline/qcommandline.h"
-
 
 // Global static instance (singleton pattern)
 Config* Config::s_instance = nullptr;
@@ -60,51 +59,98 @@ Config* Config::s_instance = nullptr;
 const struct QCommandLineConfigEntry flags[] = {
     { QCommandLine::Option, '\0', "cookies-file", "Sets the file to store cookies", QCommandLine::Optional },
     { QCommandLine::Option, '\0', "config", "Specifies JSON-formatted configuration file", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "debug", "Prints additional warning and debug message: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "disk-cache", "Enables disk cache: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "disk-cache-path", "Specifies the location of the disk cache", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ignore-ssl-errors", "Ignores SSL errors: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "local-storage-path", "Specifies the location of the local storage", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "local-storage-quota", "Sets the maximum size of the local storage (in bytes)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "load-images", "Loads all images: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "local-to-remote-url-access", "Allows local content to access remote URLs: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "max-disk-cache-size", "Sets the maximum size of the disk cache (in bytes)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "offline-storage-path", "Specifies the location of the offline storage", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "offline-storage-quota", "Sets the maximum size of the offline storage (in bytes)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "output-encoding", "Sets the encoding for the console output", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "phantom-path", "Sets the path to PhantomJS (used internally)", QCommandLine::Optional }, // Not really needed for Playwright
-    { QCommandLine::Option, '\0', "proxy", "Sets the network proxy: 'user:password@proxyhost:proxyport' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "proxy-auth", "Sets the network proxy authentication: 'user:password'", QCommandLine::Optional }, // Handled in proxy string
-    { QCommandLine::Option, '\0', "proxy-type", "Sets the network proxy type: 'http', 'socks5' (default)", QCommandLine::Optional }, // Handled in proxy string
-    { QCommandLine::Option, '\0', "resource-timeout", "Sets the maximum timeout for network resources (in milliseconds)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "script-encoding", "Sets the encoding for the script (default is UTF-8)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-certificates-path", "Sets the path to a directory containing SSL certificates", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-protocol", "Sets the SSL protocol to use (e.g., 'SSLv3', 'TLSv1', 'TLSv1_0', 'TLSv1_1', 'TLSv1_2', 'TLSv1_3', 'Any')", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "web-security", "Enables web security: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "webdriver", "Starts the WebDriver service (default is null)", QCommandLine::Optional }, // Not for Playwright
-    { QCommandLine::Option, '\0', "webdriver-loglevel", "Sets the log level for WebDriver (default is 'INFO')", QCommandLine::Optional }, // Not for Playwright
-    { QCommandLine::Option, '\0', "webdriver-selenium-grid-hub", "Sets the Selenium Grid hub URL (default is null)", QCommandLine::Optional }, // Not for Playwright
-    { QCommandLine::Option, '\0', "console-level", "Sets the logging level for console output (e.g., 'debug', 'info', 'warning', 'error')", QCommandLine::Optional }, // Mapped to logLevel
-    { QCommandLine::Option, '\0', "remote-debugger-port", "Starts the remote debugger on the specified port", QCommandLine::Optional }, // Mapped to showInspector
-    { QCommandLine::Option, '\0', "remote-debugger-autorun", "Runs the script automatically when remote debugger connects", QCommandLine::Optional }, // No direct Playwright equivalent
-    { QCommandLine::Option, '\0', "webdriver-port", "Starts WebDriver on the specified port (default is 8910)", QCommandLine::Optional }, // Not for Playwright
-    { QCommandLine::Option, '\0', "ignore-ssl-errors", "Ignores SSL errors (duplicate, will consolidate)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "cookies-enabled", "Enables cookies: 'true' or 'false' (default is true)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "javascript-enabled", "Enables JavaScript: 'true' or 'false' (default is true)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "javascript-can-open-windows", "Allows JavaScript to open new windows: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "javascript-can-close-windows", "Allows JavaScript to close windows: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "webgl-enabled", "Enables WebGL: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-ciphers", "Sets the SSL ciphers to use (duplicate, will consolidate)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-client-certificate-file", "Sets the client certificate file for SSL (duplicate)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-client-key-file", "Sets the client key file for SSL (duplicate)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "ssl-client-key-passphrase", "Sets the client key passphrase for SSL (duplicate)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "print-header", "Enables printing header in PDF output: 'true' or 'false' (default)", QCommandLine::Optional },
-    { QCommandLine::Option, '\0', "print-footer", "Enables printing footer in PDF output: 'true' or 'false' (default)", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "debug", "Prints additional warning and debug message: 'true' or 'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "disk-cache", "Enables disk cache: 'true' or 'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "disk-cache-path", "Specifies the location of the disk cache",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ignore-ssl-errors", "Ignores SSL errors: 'true' or 'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "local-storage-path", "Specifies the location of the local storage",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "local-storage-quota", "Sets the maximum size of the local storage (in bytes)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "load-images", "Loads all images: 'true' or 'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "local-to-remote-url-access",
+        "Allows local content to access remote URLs: 'true' or 'false' (default)", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "max-disk-cache-size", "Sets the maximum size of the disk cache (in bytes)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "offline-storage-path", "Specifies the location of the offline storage",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "offline-storage-quota", "Sets the maximum size of the offline storage (in bytes)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "output-encoding", "Sets the encoding for the console output",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "phantom-path", "Sets the path to PhantomJS (used internally)",
+        QCommandLine::Optional }, // Not really needed for Playwright
+    { QCommandLine::Option, '\0', "proxy", "Sets the network proxy: 'user:password@proxyhost:proxyport' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "proxy-auth", "Sets the network proxy authentication: 'user:password'",
+        QCommandLine::Optional }, // Handled in proxy string
+    { QCommandLine::Option, '\0', "proxy-type", "Sets the network proxy type: 'http', 'socks5' (default)",
+        QCommandLine::Optional }, // Handled in proxy string
+    { QCommandLine::Option, '\0', "resource-timeout",
+        "Sets the maximum timeout for network resources (in milliseconds)", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "script-encoding", "Sets the encoding for the script (default is UTF-8)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-certificates-path", "Sets the path to a directory containing SSL certificates",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-protocol",
+        "Sets the SSL protocol to use (e.g., 'SSLv3', 'TLSv1', 'TLSv1_0', 'TLSv1_1', 'TLSv1_2', 'TLSv1_3', 'Any')",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "web-security", "Enables web security: 'true' or 'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "webdriver", "Starts the WebDriver service (default is null)",
+        QCommandLine::Optional }, // Not for Playwright
+    { QCommandLine::Option, '\0', "webdriver-loglevel", "Sets the log level for WebDriver (default is 'INFO')",
+        QCommandLine::Optional }, // Not for Playwright
+    { QCommandLine::Option, '\0', "webdriver-selenium-grid-hub", "Sets the Selenium Grid hub URL (default is null)",
+        QCommandLine::Optional }, // Not for Playwright
+    { QCommandLine::Option, '\0', "console-level",
+        "Sets the logging level for console output (e.g., 'debug', 'info', 'warning', 'error')",
+        QCommandLine::Optional }, // Mapped to logLevel
+    { QCommandLine::Option, '\0', "remote-debugger-port", "Starts the remote debugger on the specified port",
+        QCommandLine::Optional }, // Mapped to showInspector
+    { QCommandLine::Option, '\0', "remote-debugger-autorun",
+        "Runs the script automatically when remote debugger connects",
+        QCommandLine::Optional }, // No direct Playwright equivalent
+    { QCommandLine::Option, '\0', "webdriver-port", "Starts WebDriver on the specified port (default is 8910)",
+        QCommandLine::Optional }, // Not for Playwright
+    { QCommandLine::Option, '\0', "ignore-ssl-errors", "Ignores SSL errors (duplicate, will consolidate)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "cookies-enabled", "Enables cookies: 'true' or 'false' (default is true)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "javascript-enabled", "Enables JavaScript: 'true' or 'false' (default is true)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "javascript-can-open-windows",
+        "Allows JavaScript to open new windows: 'true' or 'false' (default)", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "javascript-can-close-windows",
+        "Allows JavaScript to close windows: 'true' or 'false' (default)", QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "webgl-enabled", "Enables WebGL: 'true' or 'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-ciphers", "Sets the SSL ciphers to use (duplicate, will consolidate)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-client-certificate-file", "Sets the client certificate file for SSL (duplicate)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-client-key-file", "Sets the client key file for SSL (duplicate)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "ssl-client-key-passphrase", "Sets the client key passphrase for SSL (duplicate)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "print-header", "Enables printing header in PDF output: 'true' or 'false' (default)",
+        QCommandLine::Optional },
+    { QCommandLine::Option, '\0', "print-footer", "Enables printing footer in PDF output: 'true' or 'false' (default)",
+        QCommandLine::Optional },
     // *** DEFINITIVE FIX FOR QCommandLine ENUM MEMBERS BASED ON qcommandline.h ***
-    { QCommandLine::Switch, 'v', "version", "Prints PhantomJS version", QCommandLine::Default }, // Changed Type to Switch, Flag to Default
-    { QCommandLine::Switch, 'h', "help", "Prints this help message", QCommandLine::Default },   // Changed Type to Switch, Flag to Default
-    { QCommandLine::Param, '\0', "script", "Script file to execute", QCommandLine::Optional },   // Changed Type to Param, added a longName
-    { QCommandLine::Param, '\0', "args", "Script arguments", QCommandLine::Optional }           // Changed Type to Param, added a longName
+    { QCommandLine::Switch, 'v', "version", "Prints PhantomJS version",
+        QCommandLine::Default }, // Changed Type to Switch, Flag to Default
+    { QCommandLine::Switch, 'h', "help", "Prints this help message",
+        QCommandLine::Default }, // Changed Type to Switch, Flag to Default
+    { QCommandLine::Param, '\0', "script", "Script file to execute",
+        QCommandLine::Optional }, // Changed Type to Param, added a longName
+    { QCommandLine::Param, '\0', "args", "Script arguments",
+        QCommandLine::Optional } // Changed Type to Param, added a longName
 };
 
 // ... (Rest of your config.cpp content follows) ...
