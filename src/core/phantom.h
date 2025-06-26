@@ -54,15 +54,14 @@ class QCommandLine;
 // NEW: Forward declare IEngineBackend
 class IEngineBackend;
 
-class Phantom : public QObject
-{
+class Phantom : public QObject {
     Q_OBJECT
 
 public:
     explicit Phantom(QCoreApplication* app);
     ~Phantom();
 
-// --- Core Lifecycle ---
+    // --- Core Lifecycle ---
     bool init(int argc, char** argv); // Handles command-line parsing and initial setup
     int executeScript(const QString& scriptPath, const QStringList& scriptArgs);
     void startInteractive(); // For REPL mode
