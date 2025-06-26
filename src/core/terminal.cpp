@@ -31,8 +31,10 @@
 #include "terminal.h"
 
 #include <QCoreApplication>
+#include <QTextCodec> // Needed for QTextCodec in setEncoding
+#include <QDebug>     // Needed for qDebug()
 
-#include <iostream>
+#include <iostream> // Still needed for std::cout, std::cerr
 
 static Terminal* terminal_instance = 0;
 
@@ -40,12 +42,16 @@ Terminal* Terminal::instance() {
     if (!terminal_instance) {
         terminal_instance = new Terminal();
     }
-
     return terminal_instance;
 }
 
+// Constructor: Initialize m_debugMode
 Terminal::Terminal()
-    : QObject(QCoreApplication::instance()) { }
+    : QObject(QCoreApplication::instance())
+    , m_debugMode(false) // Initialize to false by default
+{
+    // The m_encoding will be default-constructed.
+}
 
 QString Terminal::getEncoding() const { return m_encoding.getName(); }
 
@@ -80,6 +86,26 @@ bool Terminal::setEncoding(const QString& encoding) {
 void Terminal::cout(const QString& string, const bool newline) const { output(std::cout, string, newline); }
 
 void Terminal::cerr(const QString& string, const bool newline) const { output(std::cerr, string, newline); }
+
+// --- NEW: Implementation for setDebugMode and debugMode getter ---
+void Terminal::setDebugMode(bool debug) {
+    if (m_debugMode != debug) {
+        m_debugMode = debug;
+        // Optionally, you might use qDebug() here to indicate the change,
+        // but avoid circular dependency if qDebug() itself depends on debug mode.
+        // For PhantomJS, Terminal::cerr is often used for this.
+        if (m_debugMode) {
+            cerr("[Terminal] Debug mode ENABLED.");
+        } else {
+            cerr("[Terminal] Debug mode DISABLED.");
+        }
+    }
+}
+
+bool Terminal::debugMode() const {
+    return m_debugMode;
+}
+// -----------------------------------------------------------------
 
 // private
 void Terminal::output(std::ostream& out, const QString& string, const bool newline) const {
