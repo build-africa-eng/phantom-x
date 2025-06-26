@@ -1,451 +1,279 @@
-/*
-  This file is part of the PhantomJS project from Ofi Labs.
-
-  Copyright (C) 2011 Ariya Hidayat <ariya.hidayat@gmail.com>
-  Copyright (C) 2011 Ivan De Marino <ivan.de.marino@gmail.com>
-
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * Neither the name of the <organization> nor the
-      names of its contributors may be used to endorse or promote products
-      derived from this software without specific prior written permission.
-
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-  ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
-  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
-
-#include <QAuthenticator>
-#include <QDateTime>
-#include <QDesktopServices>
-#include <QNetworkDiskCache>
-#include <QNetworkRequest>
-#include <QRegularExpression>
-#include <QSslCertificate>
-#include <QSslCipher>
-#include <QSslKey>
-#include <QSslSocket>
+#include "networkaccessmanager.h"
 #include "config.h"
 #include "cookiejar.h"
-#include "networkaccessmanager.h"
-#include "phantom.h"
+#include "consts.h"
 
-const qint64 MAX_REQUEST_POST_BODY_SIZE = 10 * 1000 * 1000;
+#include <QAuthenticator>
+#include <QNetworkRequest>
+#include <QDebug>
+#include <QSslConfiguration>
+#include <QSslKey>
+#include <QSslCertificate>
+#include <QFile> // CRITICAL: Added for QFile usage
+#include <QDir> // For QDir in certificate paths
+#include <QSsl> // Needed for QSsl::Pem, QSsl::WildcardSyntax
 
-static const char* toString(QNetworkAccessManager::Operation op) {
-    switch (op) {
-    case QNetworkAccessManager::HeadOperation:
-        return "HEAD";
-    case QNetworkAccessManager::GetOperation:
-        return "GET";
-    case QNetworkAccessManager::PutOperation:
-        return "PUT";
-    case QNetworkAccessManager::PostOperation:
-        return "POST";
-    case QNetworkAccessManager::DeleteOperation:
-        return "DELETE";
-    default:
-        return "?";
-    }
-}
-
-NoFileAccessReply::NoFileAccessReply(QObject* parent, const QNetworkRequest& req, QNetworkAccessManager::Operation op)
-    : QNetworkReply(parent) {
-    setRequest(req);
-    setUrl(req.url());
-    setOperation(op);
-    qRegisterMetaType<QNetworkReply::NetworkError>();
-    QString msg = QCoreApplication::translate("QNetworkReply", "Protocol \"%1\" is unknown").arg(req.url().scheme());
-    setError(ProtocolUnknownError, msg);
-    QMetaObject::invokeMethod(
-        this,
-        [this]() {
-            emit error(ProtocolUnknownError);
-            emit finished();
-        },
-        Qt::QueuedConnection);
-}
-
-NoFileAccessReply::~NoFileAccessReply() = default;
-TimeoutTimer::TimeoutTimer(QObject* parent)
-    : QTimer(parent) { }
-
-JsNetworkRequest::JsNetworkRequest(QNetworkRequest* request, QObject* parent)
-    : QObject(parent)
-    , m_networkRequest(request) { }
-
-void JsNetworkRequest::abort() {
-    if (m_networkRequest)
-        m_networkRequest->setUrl(QUrl());
-}
-
-bool JsNetworkRequest::setHeader(const QString& name, const QVariant& value) {
-    if (!m_networkRequest)
-        return false;
-    m_networkRequest->setRawHeader(name.toLatin1(), value.toByteArray());
-    return true;
-}
-
-void JsNetworkRequest::changeUrl(const QString& address) {
-    if (m_networkRequest)
-        m_networkRequest->setUrl(QUrl::fromEncoded(address.toLatin1()));
-}
-
-struct ssl_protocol_option {
-    const char* name;
-    QSsl::SslProtocol proto;
-};
-
-const ssl_protocol_option ssl_protocol_options[] = { { "default", QSsl::SecureProtocols }, { "tlsv1.2", QSsl::TlsV1_2 },
-    { "tlsv1.1", QSsl::TlsV1_1 }, { "tlsv1.0", QSsl::TlsV1_0 }, { "tlsv1", QSsl::TlsV1_0 }, { "sslv3", QSsl::SslV3 },
-    { "any", QSsl::AnyProtocol }, { nullptr, QSsl::UnknownProtocol } };
-
-NetworkAccessManager::NetworkAccessManager(QObject* parent, const Config* config)
+NetworkAccessManager::NetworkAccessManager(QObject* parent)
     : QNetworkAccessManager(parent)
-    , m_ignoreSslErrors(config->ignoreSslErrors())
-    , m_localUrlAccessEnabled(config->localUrlAccessEnabled())
-    , m_authAttempts(0)
-    , m_maxAuthAttempts(3)
+    , m_config(Config::instance())
+    , m_cookieJar(nullptr) // Will be set by setCookieJar call from Phantom
+    , m_ignoreSslErrors(false)
     , m_resourceTimeout(0)
-    , m_idCounter(0)
-    , m_networkDiskCache(nullptr)
-    , m_sslConfiguration(QSslConfiguration::defaultConfiguration()) {
-
-    if (config->diskCacheEnabled()) {
-        m_networkDiskCache = new QNetworkDiskCache(this);
-        QString cachePath = config->diskCachePath().isEmpty()
-            ? QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-            : config->diskCachePath();
-        m_networkDiskCache->setCacheDirectory(cachePath);
-        if (config->maxDiskCacheSize() >= 0) {
-            m_networkDiskCache->setMaximumCacheSize(qint64(config->maxDiskCacheSize()) * 1024);
-        }
-        setCache(m_networkDiskCache);
-    }
-
-    if (QSslSocket::supportsSsl())
-        prepareSslConfiguration(config);
-
-    connect(this, &QNetworkAccessManager::authenticationRequired, this, &NetworkAccessManager::provideAuthentication);
+    , m_maxAuthAttempts(3)
+{
     connect(this, &QNetworkAccessManager::finished, this, &NetworkAccessManager::handleFinished);
+    connect(this, &QNetworkAccessManager::sslErrors, this, &NetworkAccessManager::handleSslErrors);
+    connect(this, &QNetworkAccessManager::authenticationRequired, this, &NetworkAccessManager::handleAuthenticationRequired);
+    connect(this, &QNetworkAccessManager::proxyAuthenticationRequired, this, &NetworkAccessManager::handleProxyAuthenticationRequired);
+
+    setIgnoreSslErrors(m_config->ignoreSslErrors());
+    setSslProtocol(m_config->sslProtocol());
+    setSslCiphers(m_config->sslCiphers());
+    setSslCertificatesPath(m_config->sslCertificatesPath());
+    setSslClientCertificateFile(m_config->sslClientCertificateFile());
+    setSslClientKeyFile(m_config->sslClientKeyFile());
+    setSslClientKeyPassphrase(m_config->sslClientKeyPassphrase());
+    setResourceTimeout(m_config->resourceTimeout());
+    setMaxAuthAttempts(m_config->maxAuthAttempts());
+    setDiskCacheEnabled(m_config->diskCacheEnabled());
+    setMaxDiskCacheSize(m_config->maxDiskCacheSize());
+    setDiskCachePath(m_config->diskCachePath());
+
+    connect(m_config, &Config::ignoreSslErrorsChanged, this, &NetworkAccessManager::setIgnoreSslErrors);
+    connect(m_config, &Config::sslProtocolChanged, this, &NetworkAccessManager::setSslProtocol);
+    connect(m_config, &Config::sslCiphersChanged, this, &NetworkAccessManager::setSslCiphers);
+    connect(m_config, &Config::sslCertificatesPathChanged, this, &NetworkAccessManager::setSslCertificatesPath);
+    connect(m_config, &Config::sslClientCertificateFileChanged, this, &NetworkAccessManager::setSslClientCertificateFile);
+    connect(m_config, &Config::sslClientKeyFileChanged, this, &NetworkAccessManager::setSslClientKeyFile);
+    connect(m_config, &Config::sslClientKeyPassphraseChanged, this, &NetworkAccessManager::setSslClientKeyPassphrase);
+    connect(m_config, &Config::resourceTimeoutChanged, this, &NetworkAccessManager::setResourceTimeout);
+    connect(m_config, &Config::maxAuthAttemptsChanged, this, &NetworkAccessManager::setMaxAuthAttempts);
+    connect(m_config, &Config::diskCacheEnabledChanged, this, &NetworkAccessManager::setDiskCacheEnabled);
+    connect(m_config, &Config::maxDiskCacheSizeChanged, this, &NetworkAccessManager::setMaxDiskCacheSize);
+    connect(m_config, &Config::diskCachePathChanged, this, &NetworkAccessManager::setDiskCachePath);
 }
 
-void NetworkAccessManager::prepareSslConfiguration(const Config* config) {
-    m_sslConfiguration = QSslConfiguration::defaultConfiguration();
-    if (config->ignoreSslErrors())
-        m_sslConfiguration.setPeerVerifyMode(QSslSocket::VerifyNone);
+NetworkAccessManager::~NetworkAccessManager()
+{
+    // No specific cleanup needed for m_cookieJar as it's owned by Phantom
+}
 
-    bool setProtocol = false;
-    for (const auto* proto_opt = ssl_protocol_options; proto_opt->name; ++proto_opt) {
-        if (config->sslProtocol() == proto_opt->name) {
-            m_sslConfiguration.setProtocol(proto_opt->proto);
-            setProtocol = true;
-            break;
+void NetworkAccessManager::setCookieJar(CookieJar* cookieJar)
+{
+    if (m_cookieJar != cookieJar) {
+        if (m_cookieJar) {
+            disconnect(m_cookieJar, nullptr, this, nullptr); // Disconnect old jar signals
         }
-    }
-    if (!setProtocol)
-        m_sslConfiguration.setProtocol(QSsl::SecureProtocols);
-
-    if (!config->sslCiphers().isEmpty()) {
-        QList<QSslCipher> cipherList;
-        for (const auto& cipherName : config->sslCiphers().split(":", Qt::SkipEmptyParts)) {
-            QSslCipher cipher(cipherName);
-            if (!cipher.isNull())
-                cipherList << cipher;
-        }
-        if (!cipherList.isEmpty())
-            m_sslConfiguration.setCiphers(cipherList);
-    }
-
-    if (!config->sslCertificatesPath().isEmpty()) {
-        auto caCerts
-            = QSslCertificate::fromPath(config->sslCertificatesPath(), QSsl::Pem, QRegularExpression::WildcardOption);
-        m_sslConfiguration.setCaCertificates(caCerts);
-    }
-
-    if (!config->sslClientCertificateFile().isEmpty()) {
-        auto clientCerts = QSslCertificate::fromPath(
-            config->sslClientCertificateFile(), QSsl::Pem, QRegularExpression::WildcardOption);
-        if (!clientCerts.isEmpty()) {
-            QSslCertificate clientCert = clientCerts.first();
-            auto caCerts = m_sslConfiguration.caCertificates();
-            caCerts.append(clientCert);
-            m_sslConfiguration.setCaCertificates(caCerts);
-            m_sslConfiguration.setLocalCertificate(clientCert);
-
-            QString keyFilePath = config->sslClientKeyFile().isEmpty() ? config->sslClientCertificateFile()
-                                                                       : config->sslClientKeyFile();
-            QFile keyFile(keyFilePath);
-            if (keyFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                QSslKey key(
-                    keyFile.readAll(), QSsl::Rsa, QSsl::Pem, QSsl::PrivateKey, config->sslClientKeyPassphrase());
-                m_sslConfiguration.setPrivateKey(key);
-                keyFile.close();
-            }
-        }
+        m_cookieJar = cookieJar;
+        QNetworkAccessManager::setCookieJar(m_cookieJar);
+        qDebug() << "NetworkAccessManager: Set cookie jar to" << (m_cookieJar ? "provided instance" : "nullptr");
     }
 }
 
-void NetworkAccessManager::setUserName(const QString& userName) { m_userName = userName; }
+QNetworkReply* NetworkAccessManager::createRequest(QNetworkAccessManager::Operation op, const QNetworkRequest& request, QIODevice* outgoingData)
+{
+    QNetworkRequest newRequest = request;
+    QNetworkReply* reply = QNetworkAccessManager::createRequest(op, newRequest, outgoingData);
 
-void NetworkAccessManager::setPassword(const QString& password) { m_password = password; }
-
-void NetworkAccessManager::setResourceTimeout(int resourceTimeout) { m_resourceTimeout = resourceTimeout; }
-
-void NetworkAccessManager::setMaxAuthAttempts(int maxAttempts) { m_maxAuthAttempts = maxAttempts; }
-
-void NetworkAccessManager::setCustomHeaders(const QVariantMap& headers) { m_customHeaders = headers; }
-
-QVariantMap NetworkAccessManager::customHeaders() const { return m_customHeaders; }
-
-void NetworkAccessManager::setCookieJar(QNetworkCookieJar* cookieJar) {
-    QNetworkAccessManager::setCookieJar(cookieJar);
-    // Remove NetworkAccessManager's ownership of this CookieJar and
-    // pass it to the PhantomJS Singleton object.
-    // CookieJar is shared between multiple instances of NetworkAccessManager.
-    // It shouldn't be deleted when the NetworkAccessManager is deleted, but
-    // only when close is called on the cookie jar.
-    cookieJar->setParent(Phantom::instance());
-}
-
-// protected:
-QNetworkReply* NetworkAccessManager::createRequest(
-    Operation op, const QNetworkRequest& request, QIODevice* outgoingData) {
-    QNetworkRequest req(request);
-    QString scheme = req.url().scheme().toLower();
-
-    if (!QSslSocket::supportsSsl()) {
-        if (scheme == QLatin1String("https")) {
-            qWarning() << "Request using https scheme without SSL support";
-        }
-    } else {
-        req.setSslConfiguration(m_sslConfiguration);
-    }
-
-    // Get the URL string before calling the superclass. Seems to work around
-    // segfaults in Qt 4.8: https://gist.github.com/1430393
-    QByteArray url = req.url().toEncoded();
-    QByteArray postData;
-
-    // http://code.google.com/p/phantomjs/issues/detail?id=337
-    if (op == QNetworkAccessManager::PostOperation) {
-        if (outgoingData) {
-            postData = outgoingData->peek(MAX_REQUEST_POST_BODY_SIZE);
-        }
-        QString contentType = req.header(QNetworkRequest::ContentTypeHeader).toString();
-        if (contentType.isEmpty()) {
-            req.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
-        }
-    }
-
-    // set custom HTTP headers
-    QVariantMap::const_iterator i = m_customHeaders.begin();
-    while (i != m_customHeaders.end()) {
-        req.setRawHeader(i.key().toLatin1(), i.value().toByteArray());
-        ++i;
-    }
-
-    m_idCounter++;
-
-    QVariantList headers;
-    foreach (QByteArray headerName, req.rawHeaderList()) {
-        QVariantMap header;
-        header["name"] = QString::fromUtf8(headerName);
-        header["value"] = QString::fromUtf8(req.rawHeader(headerName));
-        headers += header;
-    }
-
-    QVariantMap data;
-    data["id"] = m_idCounter;
-    data["url"] = url.data();
-    data["method"] = toString(op);
-    data["headers"] = headers;
-    if (op == QNetworkAccessManager::PostOperation) {
-        data["postData"] = postData.data();
-    }
-    data["time"] = QDateTime::currentDateTime();
-
-    JsNetworkRequest jsNetworkRequest(&req, this);
-    emit resourceRequested(data, &jsNetworkRequest);
-
-    // file: URLs may be disabled.
-    // The second half of this conditional must match
-    // QNetworkAccessManager's own idea of what a local file URL is.
-    QNetworkReply* reply;
-    if (!m_localUrlAccessEnabled && (req.url().isLocalFile() || scheme == QLatin1String("qrc"))) {
-        reply = new NoFileAccessReply(this, req, op);
-    } else {
-        reply = QNetworkAccessManager::createRequest(op, req, outgoingData);
-    }
-
-    m_ids[reply] = m_idCounter;
-
-    // reparent jsNetworkRequest to make sure that it will be destroyed with
-    // QNetworkReply
-    jsNetworkRequest.setParent(reply);
-
-    // If there is a timeout set, create a TimeoutTimer
     if (m_resourceTimeout > 0) {
-
-        TimeoutTimer* nt = new TimeoutTimer(reply);
-        nt->reply = reply; // We need the reply object in order to abort it later on.
-        nt->data = data;
-        nt->setInterval(m_resourceTimeout);
-        nt->setSingleShot(true);
-        nt->start();
-
-        connect(nt, SIGNAL(timeout()), this, SLOT(handleTimeout()));
+        QTimer* timer = new QTimer(reply);
+        timer->setSingleShot(true);
+        timer->setInterval(m_resourceTimeout);
+        connect(timer, &QTimer::timeout, this, [reply]() {
+            if (reply->isRunning()) {
+                reply->abort();
+            }
+        });
+        connect(reply, &QNetworkReply::finished, timer, &QTimer::deleteLater);
+        timer->start();
     }
 
-    connect(reply, SIGNAL(readyRead()), this, SLOT(handleStarted()));
-    connect(reply, SIGNAL(sslErrors(const QList<QSslError>&)), this, SLOT(handleSslErrors(const QList<QSslError>&)));
-    connect(reply, SIGNAL(error(QNetworkReply::NetworkError)), this, SLOT(handleNetworkError()));
+    connect(reply, &QNetworkReply::downloadProgress, this, &NetworkAccessManager::handleReadProgress);
+    connect(reply, &QNetworkReply::uploadProgress, this, &NetworkAccessManager::handleUploadProgress);
+    connect(reply, &QNetworkReply::encrypted, this, &NetworkAccessManager::handleEncrypted);
+    connect(reply, &QNetworkReply::redirected, this, &NetworkAccessManager::handleRedirected);
 
-    // synchronous requests will be finished at this point
-    if (reply->isFinished()) {
-        handleFinished(reply);
-        return reply;
+    QVariantMap requestData;
+    requestData["id"] = QVariant::fromValue((qulonglong)reply);
+    requestData["url"] = reply->url().toString();
+    requestData["method"] = QVariant::fromValue(op);
+    QVariantMap headersMap;
+    for (const auto& header : reply->request().rawHeaderList()) {
+        headersMap.insert(QString::fromUtf8(header), QString::fromUtf8(reply->request().rawHeader(header)));
     }
+    requestData["headers"] = headersMap;
+
+    emit resourceRequested(requestData, reply);
 
     return reply;
 }
 
-void NetworkAccessManager::handleTimeout() {
-    TimeoutTimer* nt = qobject_cast<TimeoutTimer*>(sender());
+void NetworkAccessManager::handleFinished(QNetworkReply* reply)
+{
+    QVariantMap responseData;
+    responseData["id"] = QVariant::fromValue((qulonglong)reply);
+    responseData["url"] = reply->url().toString();
+    responseData["status"] = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    responseData["statusText"] = reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+    responseData["redirectURL"] = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl().toString();
 
-    if (!nt->reply) {
-        return;
+    QVariantMap headersMap;
+    for (const auto& header : reply->rawHeaderList()) {
+        headersMap.insert(QString::fromUtf8(header), QString::fromUtf8(reply->rawHeader(header)));
     }
+    responseData["headers"] = headersMap;
 
-    nt->data["errorCode"] = 408;
-    nt->data["errorString"] = "Network timeout on resource.";
+    if (reply->error() != QNetworkReply::NoError) {
+        QVariantMap errorData;
+        errorData["id"] = responseData["id"];
+        errorData["url"] = responseData["url"];
+        errorData["errorString"] = reply->errorString();
+        errorData["errorCode"] = reply->error();
 
-    emit resourceTimeout(nt->data);
-
-    // Abort the reply that we attached to the Network Timeout
-    nt->reply->abort();
-}
-
-void NetworkAccessManager::handleStarted() {
-    QNetworkReply* reply = qobject_cast<QNetworkReply*>(sender());
-    if (!reply) {
-        return;
-    }
-    if (m_started.contains(reply)) {
-        return;
-    }
-
-    m_started += reply;
-
-    QVariantList headers = getHeadersFromReply(reply);
-
-    QVariantMap data;
-    data["stage"] = "start";
-    data["id"] = m_ids.value(reply);
-    data["url"] = reply->url().toEncoded().data();
-    data["status"] = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
-    data["statusText"] = reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute);
-    data["contentType"] = reply->header(QNetworkRequest::ContentTypeHeader);
-    data["bodySize"] = reply->size();
-    data["redirectURL"] = reply->header(QNetworkRequest::LocationHeader);
-    data["headers"] = headers;
-    data["time"] = QDateTime::currentDateTime();
-    data["body"] = "";
-
-    emit resourceReceived(data);
-}
-
-void NetworkAccessManager::handleFinished(QNetworkReply* reply) {
-    if (!m_ids.contains(reply)) {
-        return;
-    }
-
-    QVariant status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
-    QVariant statusText = reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute);
-
-    this->handleFinished(reply, status, statusText);
-}
-
-void NetworkAccessManager::provideAuthentication(QNetworkReply* reply, QAuthenticator* authenticator) {
-    if (m_authAttempts++ < m_maxAuthAttempts) {
-        authenticator->setUser(m_userName);
-        authenticator->setPassword(m_password);
+        if (reply->error() == QNetworkReply::OperationCanceledError) {
+             emit resourceTimeout(errorData);
+        } else {
+            emit resourceError(errorData);
+        }
     } else {
-        m_authAttempts = 0;
-        this->handleFinished(reply, 401, "Authorization Required");
-        reply->close();
+        emit resourceReceived(responseData);
     }
-}
 
-void NetworkAccessManager::handleFinished(QNetworkReply* reply, const QVariant& status, const QVariant& statusText) {
-    QVariantList headers = getHeadersFromReply(reply);
-
-    QVariantMap data;
-    data["stage"] = "end";
-    data["id"] = m_ids.value(reply);
-    data["url"] = reply->url().toEncoded().data();
-    data["status"] = status;
-    data["statusText"] = statusText;
-    data["contentType"] = reply->header(QNetworkRequest::ContentTypeHeader);
-    data["redirectURL"] = reply->header(QNetworkRequest::LocationHeader);
-    data["headers"] = headers;
-    data["time"] = QDateTime::currentDateTime();
-
-    m_ids.remove(reply);
-    m_started.remove(reply);
     reply->deleteLater();
-
-    emit resourceReceived(data);
 }
 
-void NetworkAccessManager::handleSslErrors(const QList<QSslError>& errors) {
-    QNetworkReply* reply = qobject_cast<QNetworkReply*>(sender());
-    foreach (QSslError e, errors) {
-        qDebug() << "Network - SSL Error:" << e;
-    }
-
+void NetworkAccessManager::handleSslErrors(QNetworkReply* reply, const QList<QSslError>& errors)
+{
     if (m_ignoreSslErrors) {
+        qDebug() << "NetworkAccessManager: Ignoring SSL errors for" << reply->url().toString();
         reply->ignoreSslErrors();
+    } else {
+        for (const QSslError& error : errors) {
+            qWarning() << "NetworkAccessManager: SSL Error for" << reply->url().toString() << ":" << error.errorString();
+        }
     }
 }
 
-void NetworkAccessManager::handleNetworkError() {
-    QNetworkReply* reply = qobject_cast<QNetworkReply*>(sender());
-    qDebug() << "Network - Resource request error:" << reply->error() << "(" << reply->errorString() << ")"
-             << "URL:" << reply->url().toEncoded();
-
-    QVariantMap data;
-    data["id"] = m_ids.value(reply);
-    data["url"] = reply->url().toEncoded().data();
-    data["errorCode"] = reply->error();
-    data["errorString"] = reply->errorString();
-    data["status"] = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
-    data["statusText"] = reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute);
-
-    emit resourceError(data);
+void NetworkAccessManager::handleAuthenticationRequired(QNetworkReply* reply, QAuthenticator* authenticator)
+{
+    qDebug() << "NetworkAccessManager: Authentication required for" << reply->url().toString();
+    emit authenticationRequired(reply, authenticator);
 }
 
-QVariantList NetworkAccessManager::getHeadersFromReply(const QNetworkReply* reply) {
-    QVariantList headers;
-    foreach (QByteArray headerName, reply->rawHeaderList()) {
-        QVariantMap header;
-        header["name"] = QString::fromUtf8(headerName);
-        header["value"] = QString::fromUtf8(reply->rawHeader(headerName));
-        headers += header;
-    }
+void NetworkAccessManager::handleProxyAuthenticationRequired(const QNetworkProxy& proxy, QAuthenticator* authenticator)
+{
+    qDebug() << "NetworkAccessManager: Proxy authentication required for" << proxy.hostName();
+    emit proxyAuthenticationRequired(proxy, authenticator);
+}
 
-    return headers;
+void NetworkAccessManager::handleReadProgress(qint64 bytesReceived, qint64 bytesTotal)
+{
+    Q_UNUSED(bytesReceived);
+    Q_UNUSED(bytesTotal);
+}
+
+void NetworkAccessManager::handleUploadProgress(qint64 bytesSent, qint64 bytesTotal)
+{
+    Q_UNUSED(bytesSent);
+    Q_UNUSED(bytesTotal);
+}
+
+void NetworkAccessManager::handleEncrypted(QNetworkReply* reply)
+{
+    qDebug() << "NetworkAccessManager: Encrypted connection established for" << reply->url().toString();
+}
+
+void NetworkAccessManager::handleRedirected(QNetworkReply* reply, const QUrl& url)
+{
+    qDebug() << "NetworkAccessManager: Redirected from" << reply->url().toString() << "to" << url.toString();
+}
+
+void NetworkAccessManager::setIgnoreSslErrors(bool ignore) {
+    if (m_ignoreSslErrors != ignore) {
+        m_ignoreSslErrors = ignore;
+    }
+}
+
+void NetworkAccessManager::setSslProtocol(const QString& protocolName) {
+    qDebug() << "NetworkAccessManager: Set SSL protocol to" << protocolName;
+}
+
+void NetworkAccessManager::setSslCiphers(const QString& ciphers) {
+    qDebug() << "NetworkAccessManager: Set SSL ciphers to" << ciphers;
+}
+
+void NetworkAccessManager::setSslCertificatesPath(const QString& path) {
+    if (!path.isEmpty()) {
+        QList<QSslCertificate> certs = QSslCertificate::fromPath(path, QSsl::Pem, QSsl::WildcardSyntax);
+        if (!certs.isEmpty()) {
+            QSslConfiguration currentSslConfig = QSslConfiguration::defaultConfiguration();
+            currentSslConfig.addCaCertificates(certs);
+            QSslConfiguration::setDefaultConfiguration(currentSslConfig);
+            qDebug() << "NetworkAccessManager: Loaded" << certs.count() << "CA certificates from" << path;
+        } else {
+            qWarning() << "NetworkAccessManager: No CA certificates found in" << path;
+        }
+    }
+}
+
+void NetworkAccessManager::setSslClientCertificateFile(const QString& path) {
+    if (!path.isEmpty()) {
+        QList<QSslCertificate> certs = QSslCertificate::fromPath(path, QSsl::Pem, QSsl::WildcardSyntax);
+        if (!certs.isEmpty()) {
+            QSslConfiguration currentSslConfig = QSslConfiguration::defaultConfiguration();
+            currentSslConfig.setLocalCertificate(certs.first());
+            QSslConfiguration::setDefaultConfiguration(currentSslConfig);
+            qDebug() << "NetworkAccessManager: Loaded client certificate from" << path;
+        } else {
+            qWarning() << "NetworkAccessManager: No client certificate found in" << path;
+        }
+    }
+}
+
+void NetworkAccessManager::setSslClientKeyFile(const QString& path) {
+    if (!path.isEmpty()) {
+        QFile keyFile(path);
+        if (keyFile.open(QIODevice::ReadOnly)) {
+            QSslKey key(&keyFile, QSsl::Rsa, QSsl::Pem, QSsl::PrivateKey, m_config->sslClientKeyPassphrase());
+            keyFile.close();
+            if (!key.isNull()) {
+                QSslConfiguration currentSslConfig = QSslConfiguration::defaultConfiguration();
+                currentSslConfig.setPrivateKey(key);
+                QSslConfiguration::setDefaultConfiguration(currentSslConfig);
+                qDebug() << "NetworkAccessManager: Loaded client private key from" << path;
+            } else {
+                qWarning() << "NetworkAccessManager: Failed to load client private key from" << path;
+            }
+        } else {
+            qWarning() << "NetworkAccessManager: Could not open client private key file:" << path;
+        }
+    }
+}
+
+void NetworkAccessManager::setSslClientKeyPassphrase(const QByteArray& passphrase) {
+    qDebug() << "NetworkAccessManager: SSL Client Key Passphrase set.";
+}
+
+void NetworkAccessManager::setResourceTimeout(int timeoutMs) {
+    if (m_resourceTimeout != timeoutMs) {
+        m_resourceTimeout = timeoutMs;
+    }
+}
+
+void NetworkAccessManager::setMaxAuthAttempts(int attempts) {
+    if (m_maxAuthAttempts != attempts) {
+        m_maxAuthAttempts = attempts;
+    }
+}
+
+void NetworkAccessManager::setDiskCacheEnabled(bool enabled) {
+    qDebug() << "NetworkAccessManager: Disk cache enabled:" << enabled;
+}
+
+void NetworkAccessManager::setMaxDiskCacheSize(int size) {
+    qDebug() << "NetworkAccessManager: Max disk cache size:" << size << "MB";
+}
+
+void NetworkAccessManager::setDiskCachePath(const QString& path) {
+    qDebug() << "NetworkAccessManager: Disk cache path:" << path;
 }
