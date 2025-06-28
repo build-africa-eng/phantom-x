@@ -7,14 +7,15 @@
 
 // Constructor
 NetworkAccessManager::NetworkAccessManager(QObject* parent)
-    : QNetworkAccessManager(parent)
-{
+    : QNetworkAccessManager(parent) {
     // Connect the QNetworkAccessManager's own finished signal to our handler
     connect(this, &NetworkAccessManager::finished, this, &NetworkAccessManager::handleFinished);
 
     // You might also connect other global signals of QNetworkAccessManager here
-    connect(this, &NetworkAccessManager::authenticationRequired, this, &NetworkAccessManager::handleAuthenticationRequired);
-    connect(this, &NetworkAccessManager::proxyAuthenticationRequired, this, &NetworkAccessManager::handleProxyAuthenticationRequired);
+    connect(
+        this, &NetworkAccessManager::authenticationRequired, this, &NetworkAccessManager::handleAuthenticationRequired);
+    connect(this, &NetworkAccessManager::proxyAuthenticationRequired, this,
+        &NetworkAccessManager::handleProxyAuthenticationRequired);
     connect(this, &NetworkAccessManager::sslErrors, this, &NetworkAccessManager::handleSslErrors);
 
     // Example of a custom network request configuration or logging
@@ -22,8 +23,8 @@ NetworkAccessManager::NetworkAccessManager(QObject* parent)
 }
 
 // Override createRequest to potentially intercept or modify requests
-QNetworkReply* NetworkAccessManager::createRequest(QNetworkAccessManager::Operation op, const QNetworkRequest& req, QIODevice* outgoingData)
-{
+QNetworkReply* NetworkAccessManager::createRequest(
+    QNetworkAccessManager::Operation op, const QNetworkRequest& req, QIODevice* outgoingData) {
     // Log the request or apply custom headers/logic
     qDebug() << "NetworkAccessManager: Creating request for URL:" << req.url().toString() << "Operation:" << op;
 
@@ -45,22 +46,19 @@ QNetworkReply* NetworkAccessManager::createRequest(QNetworkAccessManager::Operat
 
 // --- Slot Implementations ---
 
-void NetworkAccessManager::handleEncrypted()
-{
+void NetworkAccessManager::handleEncrypted() {
     qDebug() << "NetworkAccessManager: QNetworkReply encrypted signal received.";
     // This slot is called when a TLS/SSL handshake has successfully completed.
     // No reply object is passed directly with this signal.
 }
 
-void NetworkAccessManager::handleRedirected(const QUrl& newUrl)
-{
+void NetworkAccessManager::handleRedirected(const QUrl& newUrl) {
     qDebug() << "NetworkAccessManager: QNetworkReply redirected to:" << newUrl.toString();
     // This slot is called when a redirect occurs. The newUrl is provided.
     // No reply object is passed directly with this signal.
 }
 
-void NetworkAccessManager::handleFinished(QNetworkReply* reply)
-{
+void NetworkAccessManager::handleFinished(QNetworkReply* reply) {
     qDebug() << "NetworkAccessManager: Request finished for URL:" << reply->url().toString();
 
     // Check for errors
@@ -79,18 +77,15 @@ void NetworkAccessManager::handleFinished(QNetworkReply* reply)
     reply->deleteLater();
 }
 
-void NetworkAccessManager::handleDownloadProgress(qint64 bytesReceived, qint64 bytesTotal)
-{
+void NetworkAccessManager::handleDownloadProgress(qint64 bytesReceived, qint64 bytesTotal) {
     // qInfo() << "Download Progress:" << bytesReceived << "/" << bytesTotal;
 }
 
-void NetworkAccessManager::handleUploadProgress(qint64 bytesSent, qint64 bytesTotal)
-{
+void NetworkAccessManager::handleUploadProgress(qint64 bytesSent, qint64 bytesTotal) {
     // qInfo() << "Upload Progress:" << bytesSent << "/" << bytesTotal;
 }
 
-void NetworkAccessManager::handleSslErrors(const QList<QSslError>& errors)
-{
+void NetworkAccessManager::handleSslErrors(const QList<QSslError>& errors) {
     qWarning() << "NetworkAccessManager: SSL Errors occurred:";
     for (const QSslError& error : errors) {
         qWarning() << " - " << error.errorString();
@@ -100,16 +95,15 @@ void NetworkAccessManager::handleSslErrors(const QList<QSslError>& errors)
     // reply->ignoreSslErrors(); // This would ignore the errors for the specific reply
 }
 
-void NetworkAccessManager::handleAuthenticationRequired(QNetworkReply* reply, QAuthenticator* authenticator)
-{
+void NetworkAccessManager::handleAuthenticationRequired(QNetworkReply* reply, QAuthenticator* authenticator) {
     qDebug() << "NetworkAccessManager: Authentication required for URL:" << reply->url().toString();
     // Example: Set credentials if known
     // authenticator->setUser("username");
     // authenticator->setPassword("password");
 }
 
-void NetworkAccessManager::handleProxyAuthenticationRequired(const QNetworkProxy& proxy, QAuthenticator* authenticator)
-{
+void NetworkAccessManager::handleProxyAuthenticationRequired(
+    const QNetworkProxy& proxy, QAuthenticator* authenticator) {
     qDebug() << "NetworkAccessManager: Proxy authentication required for host:" << proxy.hostName();
     // Example: Set proxy credentials if known
     // authenticator->setUser("proxyuser");
