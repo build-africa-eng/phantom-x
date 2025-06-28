@@ -76,16 +76,15 @@ void NetworkAccessManager::handleUploadProgress(qint64 bytesSent, qint64 bytesTo
     // qInfo() << "Upload Progress:" << bytesSent << "/" << bytesTotal;
 }
 
-void NetworkAccessManager::handleSslErrors(QNetworkReply *reply, const QList<QSslError>& errors)
-{
+void NetworkAccessManager::handleSslErrors(QNetworkReply* reply, const QList<QSslError>& errors) {
     qWarning() << "NetworkAccessManager: SSL Errors occurred for URL:" << reply->url().toString();
     for (const QSslError& error : errors) {
         qWarning() << " - " << error.errorString();
     }
 }
-    // You might want to automatically ignore some errors or prompt the user.
-    // For now, we just log them.
-    // reply->ignoreSslErrors(); // This would ignore the errors for the specific reply
+// You might want to automatically ignore some errors or prompt the user.
+// For now, we just log them.
+// reply->ignoreSslErrors(); // This would ignore the errors for the specific reply
 }
 
 void NetworkAccess
