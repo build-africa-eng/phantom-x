@@ -11,8 +11,7 @@
 // Declare QNetworkAccessManager::Operation as a metatype so it can be stored in QVariant
 Q_DECLARE_METATYPE(QNetworkAccessManager::Operation);
 
-class NetworkAccessManager : public QNetworkAccessManager
-{
+class NetworkAccessManager : public QNetworkAccessManager {
     Q_OBJECT
 
 public:
@@ -20,7 +19,8 @@ public:
 
     // Public API for handling custom requests or configurations
     // Not explicitly defined in the provided .cpp, but typically part of the public interface
-    QNetworkReply* createRequest(QNetworkAccessManager::Operation op, const QNetworkRequest& req, QIODevice* outgoingData = nullptr) override;
+    QNetworkReply* createRequest(
+        QNetworkAccessManager::Operation op, const QNetworkRequest& req, QIODevice* outgoingData = nullptr) override;
 
 signals:
     // Existing signals based on your previous code
